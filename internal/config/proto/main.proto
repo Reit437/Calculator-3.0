@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package pb;
+
+option go_package = "github.com/yourusername/calculator/pb;pb";
+
+service CalculatorService {
+  rpc Calculate (CalculateRequest) returns (CalculateResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/calculate"
+      body: "*"
+    };
+  }
+  
+  rpc GetExpressions (GetExpressionsRequest) returns (GetExpressionsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/expressions"
+    };
+  }
+  
+  rpc GetExpressionByID (GetExpressionByIDRequest) returns (GetExpressionByIDResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/expressions/{id}"
+    };
+  }
+
+  rpc Task (TaskRequest) returns (TaskResponse){
+    option (google.api.http) = {
+      get: "/internal/task"
+    };
+  }
+
+  rpc Result (ResultRequest) returns (ResultResponse){
+    option (google.api.http) = {
+      post: "/internal/task"
+    };
+  }
+}
+
+message CalculateRequest {
+  string expression = 1;
+}
+
+message CalculateResponse {
+  string id = 1;
+}
+
+message GetExpressionsRequest {}
+
+message GetExpressionsResponse {
+  repeated Expression expressions = 1;
+}
+
+message GetExpressionByIDRequest {
+  string id = 1;
+}
+
+message GetExpressionByIDResponse {
+  Expression expression = 1;
+}
+
+message TaskRequest {}
+
+message TaskResponse{
+  Tasks task=1;
+}
+
+message ResultRequest{
+  string id=1;
+  string result=2;
+}
+
+message ResultResponse{}
+
+message Expression {
+  string id = 1;
+  string status = 2;
+  string result = 3;
+}
+
+message Tasks{
+  string id=1;
+  string arg1=2;
+  string arg2=3;
+  string operation=4;
+  string operation_time=5;
+}
