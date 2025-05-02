@@ -171,12 +171,14 @@ func Calculate(expression string) (string, error) {
 	//Запускаем агента
 	go func() {
 		cmd := exec.Command("go", "run", "./internal/services/agent.go")
-		err := cmd.Run()
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Start()
 		if err != nil {
 			fmt.Println(errors.ErrInternalServerError)
 		}
 	}()
-	return "id" + string(Maxid), nil
+	return "id" + strconv.Itoa(Maxid), nil
 }
 
 func Expressions() []SubExp {
@@ -192,7 +194,8 @@ func ExpressionByID(id string) (SubExp, error) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	expressId, err := strconv.Atoi(id)
+	expressId, err := strconv.Atoi(id[2:])
+	fmt.Println(expressId, Maxid, id, id[2:])
 	//проверяем валидность id
 	if expressId > Maxid || expressId < 1 || err != nil {
 		return SubExp{}, fmt.Errorf(errors.ErrNotFound)
@@ -245,10 +248,10 @@ func Result(id, result string) (int, error) {
 	return v, nil
 }
 
-/*curl --location 'http://localhost:80/api/v1/calculate' \
+/*curl --location 'http://localhost:5000/api/v1/calculate' \
 --header 'Content-Type: application/json' \
 --data '{
   "expression": "1.2 + ( -8 * 9 / 7 + 56 - 7 ) * 8 - 35 + 74 / 41 - 8"
 }'*/
-//curl --location 'localhost/api/v1/expressions'
-//curl --location 'localhost/api/v1/expressions/:Id'
+//curl --location 'localhost:5000/api/v1/expressions'
+//curl --location 'localhost:5000/api/v1/expressions/:Id'

@@ -6,13 +6,15 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"sync"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	ork "github.com/Reit437/Calculator-3.0/internal/app"
-	pb "github.com/Reit437/Calculator-3.0/internal/config/proto"
+	pb "github.com/Reit437/Calculator-3.0/internal/config/proto/main"
 	er "github.com/Reit437/Calculator-3.0/pkg/errors"
 )
 
@@ -22,6 +24,7 @@ type server struct {
 
 var (
 	Maxid int
+	mu    sync.Mutex
 )
 
 func (s *server) Calculate(ctx context.Context, req *pb.CalculateRequest) (*pb.CalculateResponse, error) {
@@ -58,7 +61,7 @@ func (s *server) GetExpressions(ctx context.Context, req *pb.GetExpressionsReque
 }
 func (s *server) GetExpressionByID(ctx context.Context, req *pb.GetExpressionByIDRequest) (*pb.GetExpressionByIDResponse, error) {
 	id := req.GetId()
-
+	fmt.Println(id)
 	// Получаем выражение по ID
 	subExp, err := ork.ExpressionByID(id)
 	if err != nil {
@@ -76,7 +79,11 @@ func (s *server) GetExpressionByID(ctx context.Context, req *pb.GetExpressionByI
 }
 
 func (s *server) Task(ctx context.Context, req *pb.TaskRequest) (*pb.TaskResponse, error) {
+	mu.Lock()
+	defer mu.Unlock()
+
 	task := ork.Taskf()
+	fmt.Println(task)
 
 	return &pb.TaskResponse{
 		Task: &pb.Tasks{
@@ -126,16 +133,28 @@ func runGatewayServer() error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	mux := runtime.NewServeMux()
-	opts := []grpc.DialOption{grpc.WithInsecure()}
+	// Настройка JSON-маршалера с отступами
+	jsonMarshaler := &runtime.JSONPb{
+		MarshalOptions: protojson.MarshalOptions{
+			Multiline:     true, // Включить переносы строк
+			Indent:        "  ", // Два пробела для отступа
+			UseProtoNames: true, // Использовать имена полей из proto (не camelCase)
+		},
+	}
 
+	// Создаём мукс с кастомным маршалером
+	mux := runtime.NewServeMux(
+		runtime.WithMarshalerOption(runtime.MIMEWildcard, jsonMarshaler),
+	)
+
+	opts := []grpc.DialOption{grpc.WithInsecure()}
 	err := pb.RegisterCalculatorServiceHandlerFromEndpoint(ctx, mux, ":50051", opts)
 	if err != nil {
 		return err
 	}
 
-	log.Println("Starting HTTP gateway on :8080")
-	return http.ListenAndServe(":8080", mux)
+	log.Println("Starting HTTP gateway on :5000")
+	return http.ListenAndServe(":5000", mux)
 }
 
 func main() {

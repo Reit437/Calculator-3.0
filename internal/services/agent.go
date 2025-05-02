@@ -11,8 +11,10 @@ import (
 	"sync"
 	"time"
 
-	pba "github.com/Reit437/Calculator-3.0/internal/config/proto"
+	pb "github.com/Reit437/Calculator-3.0/internal/config/proto/main"
 	"github.com/joho/godotenv"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Задание от оркестратора
@@ -37,7 +39,6 @@ type APIResponse struct {
 
 var (
 	mu         sync.Mutex
-	result     float64
 	ID         string
 	valmap     = make(map[string]string)
 	stopch     = make(chan struct{})
@@ -46,7 +47,7 @@ var (
 	n          int
 )
 
-func Agent(wg *sync.WaitGroup, client pba.TaskServiceClient) {
+func Agent(wg *sync.WaitGroup, client pb.CalculatorServiceClient) {
 	defer wg.Done()
 
 	// Проверка на остановку
@@ -59,7 +60,7 @@ func Agent(wg *sync.WaitGroup, client pba.TaskServiceClient) {
 	}
 
 	// 1. Получаем задание через gRPC
-	taskResp, err := client.Task(context.Background(), &pba.TaskRequest{})
+	taskResp, err := client.Task(context.Background(), &pb.TaskRequest{})
 	if err != nil {
 		log.Printf("Failed to get task: %v", err)
 		return
@@ -142,7 +143,7 @@ func Agent(wg *sync.WaitGroup, client pba.TaskServiceClient) {
 		}
 
 		// 2. Отправляем результат через gRPC
-		_, err = client.Result(ctx, &pba.ResultRequest{
+		_, err = client.Result(context.Background(), &pb.ResultRequest{
 			Id:     task.Id,
 			Result: strconv.FormatFloat(result, 'f', 3, 64),
 		})
@@ -161,7 +162,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	dir = dir[:strings.Index(dir, "Calculator-2.0")+14]
+	dir = dir[:strings.Index(dir, "Calculator-3.0")+14]
 	envPath := filepath.Join(dir, "internal", "config", "variables.env")
 	// Загружаем переменные среды
 	if err := godotenv.Load(envPath); err != nil {
@@ -172,12 +173,21 @@ func main() {
 	n = 1
 	var wg sync.WaitGroup
 
+	// 1. Устанавливаем соединение
+	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	client := pb.NewCalculatorServiceClient(conn)
+
 	// Запуск цикла с горутинами в виде Agent()
 	fmt.Println("Запускаем Agent в горутине...")
 	for i := 0; i < n; i++ {
 		for u := 0; u < comp_power; u++ {
 			wg.Add(1)
-			go Agent(&wg)
+			go Agent(&wg, client)
 			time.Sleep(1 * time.Second)
 		}
 	}
