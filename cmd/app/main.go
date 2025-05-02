@@ -11,18 +11,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	pb "github.com/yourusername/calculator/pb"
+	ork "github.com/Reit437/Calculator-3.0/internal/app"
+	pb "github.com/Reit437/Calculator-3.0/internal/config/proto"
+	er "github.com/Reit437/Calculator-3.0/pkg/errors"
 )
 
 type server struct {
 	pb.UnimplementedCalculatorServiceServer
-}
-
-// SubExp представляет подвыражение
-type SubExp struct {
-	Id     string `json:"id"`
-	Status string `json:"status"`
-	Result string `json:"result"`
 }
 
 var (
@@ -32,8 +27,9 @@ var (
 func (s *server) Calculate(ctx context.Context, req *pb.CalculateRequest) (*pb.CalculateResponse, error) {
 	expression := req.GetExpression()
 
-	Maxid, err := Calculate(expression)
+	Maxid, err := ork.Calculate(expression)
 	if err != nil {
+		log.Printf(er.ErrUnprocessableEntity)
 		return &pb.CalculateResponse{}, nil
 	}
 
@@ -44,7 +40,7 @@ func (s *server) Calculate(ctx context.Context, req *pb.CalculateRequest) (*pb.C
 
 func (s *server) GetExpressions(ctx context.Context, req *pb.GetExpressionsRequest) (*pb.GetExpressionsResponse, error) {
 	// Получаем список подвыражений
-	subExps := Expressions()
+	subExps := ork.Expressions()
 
 	// Конвертируем в protobuf формат
 	expressions := make([]*pb.Expression, 0, len(subExps))
@@ -64,8 +60,9 @@ func (s *server) GetExpressionByID(ctx context.Context, req *pb.GetExpressionByI
 	id := req.GetId()
 
 	// Получаем выражение по ID
-	subExp, err := ExpressionByID(id)
+	subExp, err := ork.ExpressionByID(id)
 	if err != nil {
+		log.Printf(er.ErrNotFound)
 		return &pb.GetExpressionByIDResponse{}, nil
 	}
 
@@ -79,21 +76,30 @@ func (s *server) GetExpressionByID(ctx context.Context, req *pb.GetExpressionByI
 }
 
 func (s *server) Task(ctx context.Context, req *pb.TaskRequest) (*pb.TaskResponse, error) {
-	task, err := Task()
+	task := ork.Taskf()
+
 	return &pb.TaskResponse{
-		Tasks: &pb.Tasks{
-			Id:             task.Id,
-			Arg1:           task.Arg1,
-			Arg2:           task.Arg2,
-			Operation:      task.Operation,
-			Operation_time: task.Operation_time,
+		Task: &pb.Tasks{
+			Id:            task.Id,
+			Arg1:          task.Arg1,
+			Arg2:          task.Arg2,
+			Operation:     task.Operation,
+			OperationTime: task.OperationTime,
 		},
 	}, nil
 }
 
 func (s *server) Result(ctx context.Context, req *pb.ResultRequest) (*pb.ResultResponse, error) {
-	result, err := Result()
-	if result != Maxid {
+	id := req.GetId()
+	result := req.GetResult()
+
+	res, err := ork.Result(id, result)
+	if err != nil {
+		log.Printf(er.ErrUnprocessableEntity)
+		return &pb.ResultResponse{}, nil
+	}
+
+	if res != Maxid {
 		return &pb.ResultResponse{}, nil
 	} else {
 		fmt.Println("Выражение решено")

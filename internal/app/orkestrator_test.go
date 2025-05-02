@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	ork "github.com/Reit437/Calculator-2.0/internal/app"
+	ork "github.com/Reit437/Calculator-3.0/internal/app"
 )
 
 type RequestBody struct {

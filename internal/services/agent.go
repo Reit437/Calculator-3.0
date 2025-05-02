@@ -1,13 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Reit437/Calculator-2.0/pkg/errors"
+	pba "github.com/Reit437/Calculator-3.0/internal/config/proto"
 	"github.com/joho/godotenv"
 )
 
@@ -50,147 +46,113 @@ var (
 	n          int
 )
 
-func Agent(wg *sync.WaitGroup) {
+func Agent(wg *sync.WaitGroup, client pba.TaskServiceClient) {
 	defer wg.Done()
-	// Проверка до попытки забрать задание, закрыт ли останавливающий канал
+
+	// Проверка на остановку
 	select {
 	case _, ok := <-stopch:
 		if !ok {
 			return
 		}
 	default:
+	}
 
-		var (
-			result float64
-		)
+	// 1. Получаем задание через gRPC
+	taskResp, err := client.Task(context.Background(), &pba.TaskRequest{})
+	if err != nil {
+		log.Printf("Failed to get task: %v", err)
+		return
+	}
 
-		url := "http://localhost/internal/task"
-		// Запрашиваем задание
-		resp, err := http.Get(url)
-		if err != nil {
-			fmt.Println(errors.ErrInternalServerError, http.StatusInternalServerError)
-			return
-		}
-		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println(errors.ErrInternalServerError, http.StatusInternalServerError)
-			return
-		}
+	task := taskResp.GetTask()
+	dig++
 
-		// Декодируем ответ
-		var apiResp APIResponse
-		err = json.Unmarshal(body, &apiResp)
-		if err != nil {
-			fmt.Println(errors.ErrInternalServerError, http.StatusInternalServerError)
-			return
-		}
+	// Логика проверки горутин (оставляем без изменений)
+	if dig == comp_power && task.Id != "last" {
+		n++
+		dig = 0
+	}
 
-		task := apiResp.Tasks
-		dig++
-		// Проверяем, хватает ли горутин, чтобы выполнить все задачи
-		if dig == comp_power && task.Id != "last" {
-			// Добавляем круг цикла т.к. горутин не хватает
-			n++
-			dig = 0
+	if task.Id == "last" {
+		close(stopch)
+		return
+	}
+
+	mu.Lock()
+	ID = task.Id
+	valmap[ID] = "no"
+	mu.Unlock()
+
+	// Обработка аргументов (оставляем без изменений)
+	for strings.Contains(task.Arg1, "id") || strings.Contains(task.Arg2, "id") {
+		if strings.Contains(task.Arg1, "id") {
+			if valmap[task.Arg1] != "no" {
+				task.Arg1 = strings.Replace(task.Arg1, task.Arg1, valmap[task.Arg1], 1)
+			} else {
+				time.Sleep(time.Millisecond * 100)
+			}
 		}
-		// Проверяем, что задача не последняя
-		if task.Id == "last" {
+		if strings.Contains(task.Arg2, "id") {
+			task.Arg2 = task.Arg2[:len(task.Arg2)-1]
+			if valmap[task.Arg2] != "no" {
+				task.Arg2 = strings.Replace(task.Arg2, task.Arg2, valmap[task.Arg2], 1)
+			} else {
+				time.Sleep(time.Millisecond * 100)
+			}
+		}
+	}
+
+	// Вычисление результата
+	t, _ := strconv.Atoi(task.OperationTime)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(t))
+	defer cancel()
+
+	select {
+	case <-ctx.Done():
+		log.Println("Timeout exceeded")
+		return
+	case <-stopch:
+		return
+	default:
+		task.Arg2 = task.Arg2[:len(task.Arg2)-1]
+		a, erra := strconv.ParseFloat(task.Arg1, 64)
+		b, errb := strconv.ParseFloat(task.Arg2, 64)
+
+		if erra != nil || errb != nil {
+			log.Println("Invalid argument values")
 			close(stopch)
 			return
 		}
 
-		mu.Lock()
-		ID = task.Id
-		// Устанавливаем для id ответа в мапе "no"
-		valmap[ID] = "no"
-		mu.Unlock()
-
-		// Цикл пока все Аргументы с id не станут простыми числами
-		for strings.Contains(task.Arg1, "id") || strings.Contains(task.Arg2, "id") {
-			if strings.Contains(task.Arg1, "id") {
-				// Если задача с таким id решилась меняем в аргументе 1 значение на ответ в той задаче
-				if valmap[task.Arg1] != "no" {
-					task.Arg1 = strings.Replace(task.Arg1, task.Arg1, valmap[task.Arg1], 1)
-					// Ждем, чтобы задача решилась
-				} else {
-					time.Sleep(time.Millisecond * 100)
-				}
+		var result float64
+		switch task.Operation {
+		case "+":
+			result = a + b
+		case "-":
+			result = a - b
+		case "*":
+			result = a * b
+		case "/":
+			if b == 0 {
+				log.Println("Division by zero")
+				return
 			}
-			if strings.Contains(task.Arg2, "id") {
-				// Убираем лишний пробел у 2 аргумента
-				task.Arg2 = task.Arg2[:len(task.Arg2)-1]
-				// Если задача с таким id решилась меняем в аргументе 2 значение на ответ в той задаче
-				if valmap[task.Arg2] != "no" {
-					task.Arg2 = strings.Replace(task.Arg2, task.Arg2, valmap[task.Arg2], 1)
-					// Ждем, чтобы задача решилась
-				} else {
-					time.Sleep(time.Millisecond * 100)
-				}
-			}
+			result = a / b
 		}
 
-		// Устанавливаем таймаут
-		t, _ := strconv.Atoi(task.Operation_time)
-		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(t))
-		defer cancel()
-
-		// Проверяем закрыт ли останавливающий канал, кончился ли таймаут, если нет, то решаем задачу
-		for {
-			select {
-			case <-ctx.Done():
-				fmt.Println("Таймаут вышел")
-				return
-			case <-stopch:
-				return
-			default:
-				// Конвертируем аргументы в числа
-				task.Arg2 = task.Arg2[:len(task.Arg2)-1]
-				a, erra := strconv.ParseFloat(task.Arg1, 64)
-				b, errb := strconv.ParseFloat(task.Arg2, 64)
-				// Проверяем успешна ли конвертация
-				if erra != nil || errb != nil {
-					fmt.Println("Невалидные значения аргументов", http.StatusInternalServerError)
-					close(stopch)
-					return
-				} else {
-					// Ищем подходящую операцию
-					switch task.Operation {
-					case "+":
-						result = a + b
-					case "-":
-						result = a - b
-					case "*":
-						result = a * b
-					case "/":
-						// Проверяем на деление на ноль
-						if b == 0 {
-							fmt.Println("Деление на ноль", http.StatusInternalServerError)
-							return
-						} else {
-							result = a / b
-						}
-					}
-				}
-				// Заменяем значение по id в мапе на результат задачи
-				valmap[ID] = strconv.FormatFloat(result, 'f', 3, 64)
-				// Формируем ответ
-				res := SolvExp{Id: task.Id, Result: strconv.FormatFloat(result, 'f', 3, 64)}
-				body, err := json.Marshal(res)
-				if err != nil {
-					fmt.Println(errors.ErrInternalServerError, http.StatusInternalServerError)
-					return
-				}
-
-				resp, err = http.Post(url, "application/json", bytes.NewBuffer(body))
-				if err != nil {
-					fmt.Println(errors.ErrInternalServerError, http.StatusInternalServerError)
-					return
-				}
-				defer resp.Body.Close()
-				return
-			}
+		// 2. Отправляем результат через gRPC
+		_, err = client.Result(ctx, &pba.ResultRequest{
+			Id:     task.Id,
+			Result: strconv.FormatFloat(result, 'f', 3, 64),
+		})
+		if err != nil {
+			log.Printf("Failed to send result: %v", err)
+			return
 		}
+
+		valmap[ID] = strconv.FormatFloat(result, 'f', 3, 64)
+		return
 	}
 }
 func main() {

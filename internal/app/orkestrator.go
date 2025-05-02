@@ -1,10 +1,8 @@
 package orkestrator
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,8 +11,8 @@ import (
 	"strings"
 	"sync"
 
-	Calc "github.com/Reit437/Calculator-2.0/pkg/calc"
-	errors "github.com/Reit437/Calculator-2.0/pkg/errors"
+	Calc "github.com/Reit437/Calculator-3.0/pkg/calc"
+	errors "github.com/Reit437/Calculator-3.0/pkg/errors"
 	"github.com/joho/godotenv"
 )
 
@@ -33,11 +31,11 @@ type Response struct {
 }
 
 type Task struct { //задания, отправляемые агенту
-	Id             string `json:"Id"`
-	Arg1           string `json:"Arg1"`
-	Arg2           string `json:"Arg2"`
-	Operation      string `json:"Operation"`
-	Operation_time string `json:"Operation_time"`
+	Id            string `json:"Id"`
+	Arg1          string `json:"Arg1"`
+	Arg2          string `json:"Arg2"`
+	Operation     string `json:"Operation"`
+	OperationTime string `json:"Operation_time"`
 }
 
 type AllExpressionsResponse struct {
@@ -58,40 +56,27 @@ type ResultResp struct { //прием результатов от агента
 }
 
 var (
-	subExpressions = make(map[string]string)
-	mu             sync.Mutex
-	Id             []SubExp
-	Maxid          int
-	Tasks          []Task
-	res            float64
-	v              int
+	mu    sync.Mutex
+	Id    []SubExp
+	Maxid int
+	Tasks []Task
+	res   float64
+	v     int
 )
 
-func CalculateHandler(w http.ResponseWriter, r *http.Request) {
+func Calculate(expression string) (string, error) {
 	/*Прием запроса с выражением от пользователя
 	Разбиение его на подвыражения,
 	Формирование заданий для агента,
 	Запуск агента*/
-	if r.Method != http.MethodPost {
-		http.Error(w, errors.ErrInternalServerError, http.StatusInternalServerError)
-		return
-	}
-
-	var req ExpressionRequest //прием запроса
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Expression == "" {
-		http.Error(w, errors.ErrUnprocessableEntity, http.StatusUnprocessableEntity)
-		return
-	}
-
 	mu.Lock()
 	defer mu.Unlock()
 
 	// вызов функции Calc для разбора выражения
-	subExpr, expErr := Calc.Calc(req.Expression)
+	subExpr, expErr := Calc.Calc(expression)
 	//проверка на ошибки при разбиении
 	if expErr == 422 {
-		http.Error(w, errors.ErrUnprocessableEntity, http.StatusUnprocessableEntity)
-		return
+		return "id0", fmt.Errorf(errors.ErrUnprocessableEntity)
 	}
 
 	Id = []SubExp{}
@@ -111,18 +96,13 @@ func CalculateHandler(w http.ResponseWriter, r *http.Request) {
 		return id1 < id2
 	})
 
-	//формирование ответа
-	resp := Response{ID: strconv.Itoa(Maxid)}
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resp)
-
 	//Формирование заданий
 	dir, err := os.Getwd() //установка пути до файла с переменными среды
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	dir = dir[:strings.Index(dir, "Calculator-2.0")+14]
+	dir = dir[:strings.Index(dir, "Calculator-3.0")+14]
 	envPath := filepath.Join(dir, "internal", "config", "variables.env")
 	//Загрузка переменных среды
 	if err := godotenv.Load(envPath); err != nil {
@@ -164,11 +144,11 @@ func CalculateHandler(w http.ResponseWriter, r *http.Request) {
 
 		//Формируем задание
 		task := Task{
-			Id:             i.Id,
-			Arg1:           result[:ind-1],
-			Arg2:           result[ind+2:],
-			Operation:      string(result[ind]),
-			Operation_time: time,
+			Id:            i.Id,
+			Arg1:          result[:ind-1],
+			Arg2:          result[ind+2:],
+			Operation:     string(result[ind]),
+			OperationTime: time,
 		}
 		Tasks = append(Tasks, task) //добавляем задание
 
@@ -182,20 +162,21 @@ func CalculateHandler(w http.ResponseWriter, r *http.Request) {
 
 	//Создаем последнее задание для остановки агента
 	Tasks = append(Tasks, Task{
-		Id:             "last",
-		Arg1:           "g",
-		Arg2:           "g",
-		Operation:      "no",
-		Operation_time: "",
+		Id:            "last",
+		Arg1:          "g",
+		Arg2:          "g",
+		Operation:     "no",
+		OperationTime: "",
 	})
 	//Запускаем агента
 	go func() {
 		cmd := exec.Command("go", "run", "./internal/services/agent.go")
 		err := cmd.Run()
 		if err != nil {
-			fmt.Println(errors.ErrInternalServerError, err)
+			fmt.Println(errors.ErrInternalServerError)
 		}
 	}()
+	return "id" + string(Maxid), nil
 }
 
 func Expressions() []SubExp {
@@ -228,7 +209,7 @@ func ExpressionByID(id string) (SubExp, error) {
 }
 
 // Новый обработчик для /internal/task
-func TaskHandler() Task {
+func Taskf() Task {
 	// отправка подвыражений агенту
 	var mu sync.Mutex
 	mu.Lock()
@@ -238,7 +219,7 @@ func TaskHandler() Task {
 	Tasks = Tasks[1:]
 	return task
 }
-func ResultHandler(id, result string) (int, error) {
+func Result(id, result string) (int, error) {
 	// прием результатов от агента
 
 	//проверка на валидность подвыражений

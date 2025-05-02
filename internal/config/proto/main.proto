@@ -4,6 +4,8 @@ package pb;
 
 option go_package = "github.com/yourusername/calculator/pb;pb";
 
+import "google/api/annotations.proto";
+
 service CalculatorService {
   rpc Calculate (CalculateRequest) returns (CalculateResponse) {
     option (google.api.http) = {

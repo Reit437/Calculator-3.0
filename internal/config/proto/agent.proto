@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package pba;
+
+option go_package = "github.com/yourusername/taskmanager/pb;pb";
+
+service TaskService {
+  // Получение задачи (аналог GET /internal/task)
+  rpc GetTask (TaskRequest) returns (TaskResponse) {}
+  
+  // Отправка результата (аналог POST /internal/task)
+  rpc SubmitResult (ResultRequest) returns (ResultResponse) {}
+}
+
+// Пустой запрос для получения задачи
+message TaskRequest {}
+
+// Ответ с задачей
+message TaskResponse {
+  Task task = 1;
+  
+  message Task {
+    string id = 1;               // Идентификатор задачи
+    string arg1 = 2;             // Первый аргумент
+    string arg2 = 3;             // Второй аргумент
+    string operation = 4;        // Операция (+, -, *, /)
+    string operation_time = 5;   // Время выполнения в мс
+  }
+}
+
+// Запрос с результатом выполнения
+message ResultRequest {
+  string id = 1;        // Идентификатор задачи
+  string result = 2;    // Результат вычисления
+}
+
+// Пустой ответ на отправку результата
+message ResultResponse {}

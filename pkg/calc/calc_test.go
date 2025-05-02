@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	Calc "github.com/Reit437/Calculator-2.0/pkg/calc"
+	Calc "github.com/Reit437/Calculator-3.0/pkg/calc"
 )
 
 func TestCalc(t *testing.T) {
