@@ -6,14 +6,20 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	ork "github.com/Reit437/Calculator-3.0/internal/app"
+	auth "github.com/Reit437/Calculator-3.0/internal/auth"
 	pb "github.com/Reit437/Calculator-3.0/internal/config/proto/main"
 	er "github.com/Reit437/Calculator-3.0/pkg/errors"
 )
@@ -23,11 +29,39 @@ type server struct {
 }
 
 var (
-	Maxid int
-	mu    sync.Mutex
+	Maxid    int
+	mu       sync.Mutex
+	Lifetime int64
+	Jwt      string
 )
 
 func (s *server) Calculate(ctx context.Context, req *pb.CalculateRequest) (*pb.CalculateResponse, error) {
+	// 1. Получаем заголовок Authorization из метаданных
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "metadata is not provided")
+	}
+
+	authHeader := md.Get("authorization")
+	if len(authHeader) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "authorization token is required")
+	}
+
+	// 2. Проверяем формат токена (Bearer <token>)
+	tokenParts := strings.Split(authHeader[0], " ")
+	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+		return nil, status.Error(codes.Unauthenticated, "invalid authorization format, expected 'Bearer <token>'")
+	}
+
+	tokenString := tokenParts[1]
+
+	if Jwt != tokenString {
+		return nil, status.Error(codes.Unauthenticated, "Error in JWT")
+	}
+	if Lifetime < time.Now().Unix() {
+		return nil, status.Error(codes.Unauthenticated, "Error in JWT")
+	}
+
 	expression := req.GetExpression()
 
 	Maxid, err := ork.Calculate(expression)
@@ -40,8 +74,32 @@ func (s *server) Calculate(ctx context.Context, req *pb.CalculateRequest) (*pb.C
 		Id: Maxid,
 	}, nil
 }
-
 func (s *server) GetExpressions(ctx context.Context, req *pb.GetExpressionsRequest) (*pb.GetExpressionsResponse, error) {
+	// 1. Получаем заголовок Authorization из метаданных
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "metadata is not provided")
+	}
+
+	authHeader := md.Get("authorization")
+	if len(authHeader) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "authorization token is required")
+	}
+
+	// 2. Проверяем формат токена (Bearer <token>)
+	tokenParts := strings.Split(authHeader[0], " ")
+	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+		return nil, status.Error(codes.Unauthenticated, "invalid authorization format, expected 'Bearer <token>'")
+	}
+
+	tokenString := tokenParts[1]
+
+	if Jwt != tokenString {
+		return nil, status.Error(codes.Unauthenticated, "Error in JWT")
+	}
+	if Lifetime < time.Now().Unix() {
+		return nil, status.Error(codes.Unauthenticated, "Error in JWT")
+	}
 	// Получаем список подвыражений
 	subExps := ork.Expressions()
 
@@ -60,8 +118,33 @@ func (s *server) GetExpressions(ctx context.Context, req *pb.GetExpressionsReque
 	}, nil
 }
 func (s *server) GetExpressionByID(ctx context.Context, req *pb.GetExpressionByIDRequest) (*pb.GetExpressionByIDResponse, error) {
+	// 1. Получаем заголовок Authorization из метаданных
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "metadata is not provided")
+	}
+
+	authHeader := md.Get("authorization")
+	if len(authHeader) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "authorization token is required")
+	}
+
+	// 2. Проверяем формат токена (Bearer <token>)
+	tokenParts := strings.Split(authHeader[0], " ")
+	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+		return nil, status.Error(codes.Unauthenticated, "invalid authorization format, expected 'Bearer <token>'")
+	}
+
+	tokenString := tokenParts[1]
+
+	if Jwt != tokenString {
+		return nil, status.Error(codes.Unauthenticated, "Error in JWT")
+	}
+	if Lifetime < time.Now().Unix() {
+		return nil, status.Error(codes.Unauthenticated, "Error in JWT")
+	}
+
 	id := req.GetId()
-	fmt.Println(id)
 	// Получаем выражение по ID
 	subExp, err := ork.ExpressionByID(id)
 	if err != nil {
@@ -77,7 +160,6 @@ func (s *server) GetExpressionByID(ctx context.Context, req *pb.GetExpressionByI
 		},
 	}, nil
 }
-
 func (s *server) Task(ctx context.Context, req *pb.TaskRequest) (*pb.TaskResponse, error) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -95,7 +177,6 @@ func (s *server) Task(ctx context.Context, req *pb.TaskRequest) (*pb.TaskRespons
 		},
 	}, nil
 }
-
 func (s *server) Result(ctx context.Context, req *pb.ResultRequest) (*pb.ResultResponse, error) {
 	id := req.GetId()
 	result := req.GetResult()
@@ -112,6 +193,35 @@ func (s *server) Result(ctx context.Context, req *pb.ResultRequest) (*pb.ResultR
 		fmt.Println("Выражение решено")
 		return &pb.ResultResponse{}, nil
 	}
+}
+func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
+	login := req.GetLogin()
+	password := req.GetPassword()
+
+	err := auth.Register(login, password)
+	if err != nil {
+		return &pb.RegisterResponse{
+			Status: "Not successful",
+		}, nil
+	}
+	return &pb.RegisterResponse{
+		Status: "Successful",
+	}, nil
+}
+func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
+	login := req.GetLogin()
+	password := req.GetPassword()
+	j, t, err := auth.Login(login, password)
+	if err != nil {
+		return &pb.LoginResponse{
+			Jwt: "Неверные данные",
+		}, nil
+	}
+	Lifetime = t + time.Now().Unix()
+	Jwt = j
+	return &pb.LoginResponse{
+		Jwt: j,
+	}, nil
 }
 
 func runGRPCServer() error {

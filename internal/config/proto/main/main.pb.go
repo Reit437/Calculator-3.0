@@ -446,6 +446,198 @@ func (*ResultResponse) Descriptor() ([]byte, []int) {
 	return file_main_proto_rawDescGZIP(), []int{9}
 }
 
+type RegisterRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Login         string                 `protobuf:"bytes,1,opt,name=login,proto3" json:"login,omitempty"`
+	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterRequest) Reset() {
+	*x = RegisterRequest{}
+	mi := &file_main_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterRequest) ProtoMessage() {}
+
+func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_main_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterRequest.ProtoReflect.Descriptor instead.
+func (*RegisterRequest) Descriptor() ([]byte, []int) {
+	return file_main_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *RegisterRequest) GetLogin() string {
+	if x != nil {
+		return x.Login
+	}
+	return ""
+}
+
+func (x *RegisterRequest) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+type RegisterResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterResponse) Reset() {
+	*x = RegisterResponse{}
+	mi := &file_main_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterResponse) ProtoMessage() {}
+
+func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_main_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterResponse.ProtoReflect.Descriptor instead.
+func (*RegisterResponse) Descriptor() ([]byte, []int) {
+	return file_main_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *RegisterResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type LoginRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Login         string                 `protobuf:"bytes,1,opt,name=login,proto3" json:"login,omitempty"`
+	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoginRequest) Reset() {
+	*x = LoginRequest{}
+	mi := &file_main_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoginRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoginRequest) ProtoMessage() {}
+
+func (x *LoginRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_main_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoginRequest.ProtoReflect.Descriptor instead.
+func (*LoginRequest) Descriptor() ([]byte, []int) {
+	return file_main_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *LoginRequest) GetLogin() string {
+	if x != nil {
+		return x.Login
+	}
+	return ""
+}
+
+func (x *LoginRequest) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+type LoginResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Jwt           string                 `protobuf:"bytes,1,opt,name=jwt,proto3" json:"jwt,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoginResponse) Reset() {
+	*x = LoginResponse{}
+	mi := &file_main_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoginResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoginResponse) ProtoMessage() {}
+
+func (x *LoginResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_main_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoginResponse.ProtoReflect.Descriptor instead.
+func (*LoginResponse) Descriptor() ([]byte, []int) {
+	return file_main_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *LoginResponse) GetJwt() string {
+	if x != nil {
+		return x.Jwt
+	}
+	return ""
+}
+
 type Expression struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -457,7 +649,7 @@ type Expression struct {
 
 func (x *Expression) Reset() {
 	*x = Expression{}
-	mi := &file_main_proto_msgTypes[10]
+	mi := &file_main_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -469,7 +661,7 @@ func (x *Expression) String() string {
 func (*Expression) ProtoMessage() {}
 
 func (x *Expression) ProtoReflect() protoreflect.Message {
-	mi := &file_main_proto_msgTypes[10]
+	mi := &file_main_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -482,7 +674,7 @@ func (x *Expression) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Expression.ProtoReflect.Descriptor instead.
 func (*Expression) Descriptor() ([]byte, []int) {
-	return file_main_proto_rawDescGZIP(), []int{10}
+	return file_main_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Expression) GetId() string {
@@ -519,7 +711,7 @@ type Tasks struct {
 
 func (x *Tasks) Reset() {
 	*x = Tasks{}
-	mi := &file_main_proto_msgTypes[11]
+	mi := &file_main_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -531,7 +723,7 @@ func (x *Tasks) String() string {
 func (*Tasks) ProtoMessage() {}
 
 func (x *Tasks) ProtoReflect() protoreflect.Message {
-	mi := &file_main_proto_msgTypes[11]
+	mi := &file_main_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -544,7 +736,7 @@ func (x *Tasks) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Tasks.ProtoReflect.Descriptor instead.
 func (*Tasks) Descriptor() ([]byte, []int) {
-	return file_main_proto_rawDescGZIP(), []int{11}
+	return file_main_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *Tasks) GetId() string {
@@ -609,7 +801,17 @@ const file_main_proto_rawDesc = "" +
 	"\rResultRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06result\x18\x02 \x01(\tR\x06result\"\x10\n" +
-	"\x0eResultResponse\"L\n" +
+	"\x0eResultResponse\"C\n" +
+	"\x0fRegisterRequest\x12\x14\n" +
+	"\x05login\x18\x01 \x01(\tR\x05login\x12\x1a\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\"*\n" +
+	"\x10RegisterResponse\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\"@\n" +
+	"\fLoginRequest\x12\x14\n" +
+	"\x05login\x18\x01 \x01(\tR\x05login\x12\x1a\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\"!\n" +
+	"\rLoginResponse\x12\x10\n" +
+	"\x03jwt\x18\x01 \x01(\tR\x03jwt\"L\n" +
 	"\n" +
 	"Expression\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
@@ -620,13 +822,15 @@ const file_main_proto_rawDesc = "" +
 	"\x04arg1\x18\x02 \x01(\tR\x04arg1\x12\x12\n" +
 	"\x04arg2\x18\x03 \x01(\tR\x04arg2\x12\x1c\n" +
 	"\toperation\x18\x04 \x01(\tR\toperation\x12%\n" +
-	"\x0eoperation_time\x18\x05 \x01(\tR\roperationTime2\xd1\x03\n" +
+	"\x0eoperation_time\x18\x05 \x01(\tR\roperationTime2\xed\x04\n" +
 	"\x11CalculatorService\x12V\n" +
 	"\tCalculate\x12\x14.pb.CalculateRequest\x1a\x15.pb.CalculateResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/api/v1/calculate\x12d\n" +
 	"\x0eGetExpressions\x12\x19.pb.GetExpressionsRequest\x1a\x1a.pb.GetExpressionsResponse\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/api/v1/expressions\x12r\n" +
 	"\x11GetExpressionByID\x12\x1c.pb.GetExpressionByIDRequest\x1a\x1d.pb.GetExpressionByIDResponse\" \x82\xd3\xe4\x93\x02\x1a\x12\x18/api/v1/expressions/{id}\x12A\n" +
 	"\x04Task\x12\x0f.pb.TaskRequest\x1a\x10.pb.TaskResponse\"\x16\x82\xd3\xe4\x93\x02\x10\x12\x0e/internal/task\x12G\n" +
-	"\x06Result\x12\x11.pb.ResultRequest\x1a\x12.pb.ResultResponse\"\x16\x82\xd3\xe4\x93\x02\x10\"\x0e/internal/taskB*Z(github.com/yourusername/calculator/pb;pbb\x06proto3"
+	"\x06Result\x12\x11.pb.ResultRequest\x1a\x12.pb.ResultResponse\"\x16\x82\xd3\xe4\x93\x02\x10\"\x0e/internal/task\x12R\n" +
+	"\bRegister\x12\x13.pb.RegisterRequest\x1a\x14.pb.RegisterResponse\"\x1b\x82\xd3\xe4\x93\x02\x15:\x01*\"\x10/api/v1/register\x12F\n" +
+	"\x05Login\x12\x10.pb.LoginRequest\x1a\x11.pb.LoginResponse\"\x18\x82\xd3\xe4\x93\x02\x12:\x01*\"\r/api/v1/loginB*Z(github.com/yourusername/calculator/pb;pbb\x06proto3"
 
 var (
 	file_main_proto_rawDescOnce sync.Once
@@ -640,7 +844,7 @@ func file_main_proto_rawDescGZIP() []byte {
 	return file_main_proto_rawDescData
 }
 
-var file_main_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_main_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_main_proto_goTypes = []any{
 	(*CalculateRequest)(nil),          // 0: pb.CalculateRequest
 	(*CalculateResponse)(nil),         // 1: pb.CalculateResponse
@@ -652,25 +856,33 @@ var file_main_proto_goTypes = []any{
 	(*TaskResponse)(nil),              // 7: pb.TaskResponse
 	(*ResultRequest)(nil),             // 8: pb.ResultRequest
 	(*ResultResponse)(nil),            // 9: pb.ResultResponse
-	(*Expression)(nil),                // 10: pb.Expression
-	(*Tasks)(nil),                     // 11: pb.Tasks
+	(*RegisterRequest)(nil),           // 10: pb.RegisterRequest
+	(*RegisterResponse)(nil),          // 11: pb.RegisterResponse
+	(*LoginRequest)(nil),              // 12: pb.LoginRequest
+	(*LoginResponse)(nil),             // 13: pb.LoginResponse
+	(*Expression)(nil),                // 14: pb.Expression
+	(*Tasks)(nil),                     // 15: pb.Tasks
 }
 var file_main_proto_depIdxs = []int32{
-	10, // 0: pb.GetExpressionsResponse.expressions:type_name -> pb.Expression
-	10, // 1: pb.GetExpressionByIDResponse.expression:type_name -> pb.Expression
-	11, // 2: pb.TaskResponse.task:type_name -> pb.Tasks
+	14, // 0: pb.GetExpressionsResponse.expressions:type_name -> pb.Expression
+	14, // 1: pb.GetExpressionByIDResponse.expression:type_name -> pb.Expression
+	15, // 2: pb.TaskResponse.task:type_name -> pb.Tasks
 	0,  // 3: pb.CalculatorService.Calculate:input_type -> pb.CalculateRequest
 	2,  // 4: pb.CalculatorService.GetExpressions:input_type -> pb.GetExpressionsRequest
 	4,  // 5: pb.CalculatorService.GetExpressionByID:input_type -> pb.GetExpressionByIDRequest
 	6,  // 6: pb.CalculatorService.Task:input_type -> pb.TaskRequest
 	8,  // 7: pb.CalculatorService.Result:input_type -> pb.ResultRequest
-	1,  // 8: pb.CalculatorService.Calculate:output_type -> pb.CalculateResponse
-	3,  // 9: pb.CalculatorService.GetExpressions:output_type -> pb.GetExpressionsResponse
-	5,  // 10: pb.CalculatorService.GetExpressionByID:output_type -> pb.GetExpressionByIDResponse
-	7,  // 11: pb.CalculatorService.Task:output_type -> pb.TaskResponse
-	9,  // 12: pb.CalculatorService.Result:output_type -> pb.ResultResponse
-	8,  // [8:13] is the sub-list for method output_type
-	3,  // [3:8] is the sub-list for method input_type
+	10, // 8: pb.CalculatorService.Register:input_type -> pb.RegisterRequest
+	12, // 9: pb.CalculatorService.Login:input_type -> pb.LoginRequest
+	1,  // 10: pb.CalculatorService.Calculate:output_type -> pb.CalculateResponse
+	3,  // 11: pb.CalculatorService.GetExpressions:output_type -> pb.GetExpressionsResponse
+	5,  // 12: pb.CalculatorService.GetExpressionByID:output_type -> pb.GetExpressionByIDResponse
+	7,  // 13: pb.CalculatorService.Task:output_type -> pb.TaskResponse
+	9,  // 14: pb.CalculatorService.Result:output_type -> pb.ResultResponse
+	11, // 15: pb.CalculatorService.Register:output_type -> pb.RegisterResponse
+	13, // 16: pb.CalculatorService.Login:output_type -> pb.LoginResponse
+	10, // [10:17] is the sub-list for method output_type
+	3,  // [3:10] is the sub-list for method input_type
 	3,  // [3:3] is the sub-list for extension type_name
 	3,  // [3:3] is the sub-list for extension extendee
 	0,  // [0:3] is the sub-list for field type_name
@@ -687,7 +899,7 @@ func file_main_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_main_proto_rawDesc), len(file_main_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

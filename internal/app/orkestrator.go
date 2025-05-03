@@ -248,10 +248,28 @@ func Result(id, result string) (int, error) {
 	return v, nil
 }
 
-/*curl --location 'http://localhost:5000/api/v1/calculate' \
+/*curl -X POST 'http://localhost:5000/api/v1/calculate' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDYyNzg2MjF9.bNCLz4aolgHsnwYzIs4olA-b2DqdimlbA3-RUGqNXIs' \
+-d '{"expression":"1.2 + ( -8 * 9 / 7 + 56 - 7 ) * 8 - 35 + 74 / 41 - 8"}'*/
+
+/*curl -X GET 'http://localhost:5000/api/v1/expressions' \
+-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDYyNzg2MjF9.bNCLz4aolgHsnwYzIs4olA-b2DqdimlbA3-RUGqNXIs'
+
+curl -X GET 'http://localhost:5000/api/v1/expressions/id1' \
+-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoiUmVpdDEyMzRzZWNyZXQiLCJleHAiOjE3NDYyNzY5MDN9.m4AFoxqSEcjkj84GkFD2pufCAO--DgWaC1CjDhPvxPs'
+
+curl --location 'http://localhost:5000/api/v1/register' \
 --header 'Content-Type: application/json' \
---data '{
-  "expression": "1.2 + ( -8 * 9 / 7 + 56 - 7 ) * 8 - 35 + 74 / 41 - 8"
-}'*/
-//curl --location 'localhost:5000/api/v1/expressions'
-//curl --location 'localhost:5000/api/v1/expressions/:Id'
+--data-raw '{
+    "login": "Reit",
+    "password": "1234"
+}'
+
+curl --location 'http://localhost:5000/api/v1/login' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "login": "Reit",
+    "password": "1234"
+}'
+*/

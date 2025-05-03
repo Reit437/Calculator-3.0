@@ -24,6 +24,8 @@ const (
 	CalculatorService_GetExpressionByID_FullMethodName = "/pb.CalculatorService/GetExpressionByID"
 	CalculatorService_Task_FullMethodName              = "/pb.CalculatorService/Task"
 	CalculatorService_Result_FullMethodName            = "/pb.CalculatorService/Result"
+	CalculatorService_Register_FullMethodName          = "/pb.CalculatorService/Register"
+	CalculatorService_Login_FullMethodName             = "/pb.CalculatorService/Login"
 )
 
 // CalculatorServiceClient is the client API for CalculatorService service.
@@ -35,6 +37,8 @@ type CalculatorServiceClient interface {
 	GetExpressionByID(ctx context.Context, in *GetExpressionByIDRequest, opts ...grpc.CallOption) (*GetExpressionByIDResponse, error)
 	Task(ctx context.Context, in *TaskRequest, opts ...grpc.CallOption) (*TaskResponse, error)
 	Result(ctx context.Context, in *ResultRequest, opts ...grpc.CallOption) (*ResultResponse, error)
+	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
+	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
 }
 
 type calculatorServiceClient struct {
@@ -95,6 +99,26 @@ func (c *calculatorServiceClient) Result(ctx context.Context, in *ResultRequest,
 	return out, nil
 }
 
+func (c *calculatorServiceClient) Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RegisterResponse)
+	err := c.cc.Invoke(ctx, CalculatorService_Register_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *calculatorServiceClient) Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LoginResponse)
+	err := c.cc.Invoke(ctx, CalculatorService_Login_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CalculatorServiceServer is the server API for CalculatorService service.
 // All implementations must embed UnimplementedCalculatorServiceServer
 // for forward compatibility.
@@ -104,6 +128,8 @@ type CalculatorServiceServer interface {
 	GetExpressionByID(context.Context, *GetExpressionByIDRequest) (*GetExpressionByIDResponse, error)
 	Task(context.Context, *TaskRequest) (*TaskResponse, error)
 	Result(context.Context, *ResultRequest) (*ResultResponse, error)
+	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
+	Login(context.Context, *LoginRequest) (*LoginResponse, error)
 	mustEmbedUnimplementedCalculatorServiceServer()
 }
 
@@ -128,6 +154,12 @@ func (UnimplementedCalculatorServiceServer) Task(context.Context, *TaskRequest) 
 }
 func (UnimplementedCalculatorServiceServer) Result(context.Context, *ResultRequest) (*ResultResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Result not implemented")
+}
+func (UnimplementedCalculatorServiceServer) Register(context.Context, *RegisterRequest) (*RegisterResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Register not implemented")
+}
+func (UnimplementedCalculatorServiceServer) Login(context.Context, *LoginRequest) (*LoginResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Login not implemented")
 }
 func (UnimplementedCalculatorServiceServer) mustEmbedUnimplementedCalculatorServiceServer() {}
 func (UnimplementedCalculatorServiceServer) testEmbeddedByValue()                           {}
@@ -240,6 +272,42 @@ func _CalculatorService_Result_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CalculatorService_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CalculatorServiceServer).Register(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CalculatorService_Register_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CalculatorServiceServer).Register(ctx, req.(*RegisterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CalculatorService_Login_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LoginRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CalculatorServiceServer).Login(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CalculatorService_Login_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CalculatorServiceServer).Login(ctx, req.(*LoginRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CalculatorService_ServiceDesc is the grpc.ServiceDesc for CalculatorService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -266,6 +334,14 @@ var CalculatorService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Result",
 			Handler:    _CalculatorService_Result_Handler,
+		},
+		{
+			MethodName: "Register",
+			Handler:    _CalculatorService_Register_Handler,
+		},
+		{
+			MethodName: "Login",
+			Handler:    _CalculatorService_Login_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -37,6 +37,20 @@ service CalculatorService {
       post: "/internal/task"
     };
   }
+
+  rpc Register (RegisterRequest) returns (RegisterResponse){
+    option (google.api.http) = {
+      post: "/api/v1/register"
+      body: "*"
+    };
+  }
+
+  rpc Login (LoginRequest) returns (LoginResponse){
+    option (google.api.http) = {
+      post: "/api/v1/login"
+      body: "*"
+    };
+  }
 }
 
 message CalculateRequest {
@@ -73,6 +87,24 @@ message ResultRequest{
 }
 
 message ResultResponse{}
+
+message RegisterRequest{
+  string login=1;
+  string password=2;
+}
+
+message RegisterResponse{
+  string status=1;
+}
+
+message LoginRequest{
+  string login=1;
+  string password=2;
+}
+
+message LoginResponse{
+  string jwt=1;
+}
 
 message Expression {
   string id = 1;
