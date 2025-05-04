@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"net"
@@ -32,37 +33,39 @@ var (
 	Maxid    int
 	mu       sync.Mutex
 	Lifetime int64
-	Jwt      string
+	Auth     bool = false
 )
 
 func (s *server) Calculate(ctx context.Context, req *pb.CalculateRequest) (*pb.CalculateResponse, error) {
-	// 1. Получаем заголовок Authorization из метаданных
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "metadata is not provided")
+	if !Auth {
+		return nil, status.Error(codes.Unauthenticated, "not authorized")
+	}
+	// Проверка JWT
+	if err := checkJwt(ctx); err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+	if err := ork.InitDB(); err != nil {
+		return nil, status.Error(codes.Unauthenticated, "not authorized")
 	}
 
-	authHeader := md.Get("authorization")
-	if len(authHeader) == 0 {
-		return nil, status.Error(codes.Unauthenticated, "authorization token is required")
+	db, err := sql.Open("sqlite3", "./tables")
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "not authorized")
 	}
+	defer db.Close()
 
-	// 2. Проверяем формат токена (Bearer <token>)
-	tokenParts := strings.Split(authHeader[0], " ")
-	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-		return nil, status.Error(codes.Unauthenticated, "invalid authorization format, expected 'Bearer <token>'")
-	}
-
-	tokenString := tokenParts[1]
-
-	if Jwt != tokenString {
-		return nil, status.Error(codes.Unauthenticated, "Error in JWT")
-	}
-	if Lifetime < time.Now().Unix() {
-		return nil, status.Error(codes.Unauthenticated, "Error in JWT")
-	}
-
+	// Основная логика
 	expression := req.GetExpression()
+
+	_, err = db.Exec(`
+	INSERT INTO main_expression (id, expression)
+    VALUES(1, ?)
+    ON CONFLICT(id) DO UPDATE
+    SET expression = excluded.expression`,
+		expression)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "Error in DB")
+	}
 
 	Maxid, err := ork.Calculate(expression)
 	if err != nil {
@@ -70,36 +73,29 @@ func (s *server) Calculate(ctx context.Context, req *pb.CalculateRequest) (*pb.C
 		return &pb.CalculateResponse{}, nil
 	}
 
+	for _, i := range ork.Id {
+		_, err := db.Exec(`
+		INSERT INTO expressions (id,status,result)
+		VALUES(?,?,?)`,
+			i.Id, i.Status, i.Result)
+		if err != nil {
+			return nil, status.Error(codes.Unauthenticated, err.Error())
+		}
+	}
+
 	return &pb.CalculateResponse{
 		Id: Maxid,
 	}, nil
 }
 func (s *server) GetExpressions(ctx context.Context, req *pb.GetExpressionsRequest) (*pb.GetExpressionsResponse, error) {
-	// 1. Получаем заголовок Authorization из метаданных
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "metadata is not provided")
+	if !Auth {
+		return nil, status.Error(codes.Unauthenticated, "not authorized")
+	}
+	err := checkJwt(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	authHeader := md.Get("authorization")
-	if len(authHeader) == 0 {
-		return nil, status.Error(codes.Unauthenticated, "authorization token is required")
-	}
-
-	// 2. Проверяем формат токена (Bearer <token>)
-	tokenParts := strings.Split(authHeader[0], " ")
-	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-		return nil, status.Error(codes.Unauthenticated, "invalid authorization format, expected 'Bearer <token>'")
-	}
-
-	tokenString := tokenParts[1]
-
-	if Jwt != tokenString {
-		return nil, status.Error(codes.Unauthenticated, "Error in JWT")
-	}
-	if Lifetime < time.Now().Unix() {
-		return nil, status.Error(codes.Unauthenticated, "Error in JWT")
-	}
 	// Получаем список подвыражений
 	subExps := ork.Expressions()
 
@@ -118,30 +114,12 @@ func (s *server) GetExpressions(ctx context.Context, req *pb.GetExpressionsReque
 	}, nil
 }
 func (s *server) GetExpressionByID(ctx context.Context, req *pb.GetExpressionByIDRequest) (*pb.GetExpressionByIDResponse, error) {
-	// 1. Получаем заголовок Authorization из метаданных
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "metadata is not provided")
+	if !Auth {
+		return nil, status.Error(codes.Unauthenticated, "not authorized")
 	}
-
-	authHeader := md.Get("authorization")
-	if len(authHeader) == 0 {
-		return nil, status.Error(codes.Unauthenticated, "authorization token is required")
-	}
-
-	// 2. Проверяем формат токена (Bearer <token>)
-	tokenParts := strings.Split(authHeader[0], " ")
-	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-		return nil, status.Error(codes.Unauthenticated, "invalid authorization format, expected 'Bearer <token>'")
-	}
-
-	tokenString := tokenParts[1]
-
-	if Jwt != tokenString {
-		return nil, status.Error(codes.Unauthenticated, "Error in JWT")
-	}
-	if Lifetime < time.Now().Unix() {
-		return nil, status.Error(codes.Unauthenticated, "Error in JWT")
+	err := checkJwt(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
 	id := req.GetId()
@@ -217,11 +195,40 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 			Jwt: "Неверные данные",
 		}, nil
 	}
+	Auth = true
 	Lifetime = t + time.Now().Unix()
-	Jwt = j
+
+	err = ork.ReadExpressions()
+	if err != nil {
+		fmt.Println(err)
+	}
+
 	return &pb.LoginResponse{
 		Jwt: j,
 	}, nil
+}
+
+func checkJwt(ctx context.Context) error {
+	// 1. Получаем заголовок Authorization из метаданных
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return fmt.Errorf("metadata is not provided")
+	}
+
+	authHeader := md.Get("authorization")
+	if len(authHeader) == 0 {
+		return fmt.Errorf("authorization token is required")
+	}
+
+	// 2. Проверяем формат токена (Bearer <token>)
+	tokenParts := strings.Split(authHeader[0], " ")
+	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+		return fmt.Errorf("invalid authorization format, expected 'Bearer <token>'")
+	}
+	if Lifetime < time.Now().Unix() {
+		return fmt.Errorf("Error in JWT")
+	}
+	return nil
 }
 
 func runGRPCServer() error {
@@ -237,7 +244,6 @@ func runGRPCServer() error {
 	log.Println("Starting gRPC server on :50051")
 	return s.Serve(lis)
 }
-
 func runGatewayServer() error {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)

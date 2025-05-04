@@ -21,7 +21,7 @@ var (
 // initDB инициализирует подключение к БД и создает таблицу
 func initDB() error {
 	var err error
-	db, err = sql.Open("sqlite3", "./auth.db")
+	db, err = sql.Open("sqlite3", "./tables.db")
 	if err != nil {
 		return fmt.Errorf("ошибка подключения к БД: %v", err)
 	}
@@ -107,6 +107,7 @@ func Login(login, password string) (string, int64, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"code": "secret_code",
+		"iat":  time.Now().Unix(),
 		"exp":  expirationTime,
 	})
 

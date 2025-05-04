@@ -1,6 +1,7 @@
 package orkestrator
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -95,7 +96,108 @@ func Calculate(expression string) (string, error) {
 		id2, _ := strconv.Atoi(Id[j].Id[2:])
 		return id1 < id2
 	})
+	//Формирование заданий
+	TaskGenerator()
+	//Запускаем агента
+	AgentStart()
+	return "id" + strconv.Itoa(Maxid), nil
+}
 
+func Expressions() []SubExp {
+	//Отправка массива Id с подвыражениями
+	mu.Lock()
+	defer mu.Unlock()
+
+	return Id
+}
+
+func ExpressionByID(id string) (SubExp, error) {
+	//Вывод подвыражения по его id
+	mu.Lock()
+	defer mu.Unlock()
+
+	expressId, err := strconv.Atoi(id[2:])
+	fmt.Println(expressId, Maxid, id, id[2:])
+	//проверяем валидность id
+	if expressId > Maxid || expressId < 1 || err != nil {
+		return SubExp{}, fmt.Errorf(errors.ErrNotFound)
+	}
+
+	// поиск выражения
+	for _, exp := range Id {
+		if exp.Id == id {
+			return exp, nil
+		}
+	}
+
+	return SubExp{}, fmt.Errorf(errors.ErrNotFound)
+}
+
+// Новый обработчик для /internal/task
+func Taskf() Task {
+	// отправка подвыражений агенту
+	var mu sync.Mutex
+	mu.Lock()
+	defer mu.Unlock()
+
+	task := Tasks[0]
+	Tasks = Tasks[1:]
+	return task
+}
+
+func Result(id, result string) (int, error) {
+	// прием результатов от агента
+
+	//проверка на валидность подвыражений
+	if id[len(id)-1] == byte(Maxid+1) {
+		return 0, fmt.Errorf(errors.ErrNotFound)
+	}
+
+	//замена статуса и результата в Id
+	d, err := strconv.ParseFloat(result, 64)
+	if err != nil {
+		return 0, fmt.Errorf(errors.ErrUnprocessableEntity)
+	}
+	for i := 0; i < len(Id); i++ {
+		if Id[i].Id == id {
+			Id[i].Status = "solved"
+			Id[i].Result = result
+			break
+		}
+	}
+	//Подсчет результата
+	res = res + d
+	v++
+
+	if err := InitDB(); err != nil {
+		return 0, fmt.Errorf("database initialization failed: %w", err)
+	}
+
+	db, err := sql.Open("sqlite3", "./tables")
+	if err != nil {
+		return 0, fmt.Errorf("failed to open database: %w", err)
+	}
+	defer db.Close()
+	_, err = db.Exec(`
+	DELETE FROM main_expression;
+	DELETE FROM expressions;
+	`)
+
+	return v, nil
+}
+
+func AgentStart() {
+	go func() {
+		cmd := exec.Command("go", "run", "./internal/services/agent.go")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Start()
+		if err != nil {
+			fmt.Println(errors.ErrInternalServerError)
+		}
+	}()
+}
+func TaskGenerator() {
 	//Формирование заданий
 	dir, err := os.Getwd() //установка пути до файла с переменными среды
 	if err != nil {
@@ -168,96 +270,114 @@ func Calculate(expression string) (string, error) {
 		Operation:     "no",
 		OperationTime: "",
 	})
-	//Запускаем агента
-	go func() {
-		cmd := exec.Command("go", "run", "./internal/services/agent.go")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err := cmd.Start()
-		if err != nil {
-			fmt.Println(errors.ErrInternalServerError)
-		}
-	}()
-	return "id" + strconv.Itoa(Maxid), nil
 }
-
-func Expressions() []SubExp {
-	//Отправка массива Id с подвыражениями
-	mu.Lock()
-	defer mu.Unlock()
-
-	return Id
-}
-
-func ExpressionByID(id string) (SubExp, error) {
-	//Вывод подвыражения по его id
-	mu.Lock()
-	defer mu.Unlock()
-
-	expressId, err := strconv.Atoi(id[2:])
-	fmt.Println(expressId, Maxid, id, id[2:])
-	//проверяем валидность id
-	if expressId > Maxid || expressId < 1 || err != nil {
-		return SubExp{}, fmt.Errorf(errors.ErrNotFound)
+func ReadExpressions() error {
+	if err := InitDB(); err != nil {
+		return fmt.Errorf("database initialization failed: %w", err)
 	}
 
-	// поиск выражения
-	for _, exp := range Id {
-		if exp.Id == id {
-			return exp, nil
-		}
-	}
-
-	return SubExp{}, fmt.Errorf(errors.ErrNotFound)
-}
-
-// Новый обработчик для /internal/task
-func Taskf() Task {
-	// отправка подвыражений агенту
-	var mu sync.Mutex
-	mu.Lock()
-	defer mu.Unlock()
-
-	task := Tasks[0]
-	Tasks = Tasks[1:]
-	return task
-}
-func Result(id, result string) (int, error) {
-	// прием результатов от агента
-
-	//проверка на валидность подвыражений
-	if id[len(id)-1] == byte(Maxid+1) {
-		return 0, fmt.Errorf(errors.ErrNotFound)
-	}
-
-	//замена статуса и результата в Id
-	d, err := strconv.ParseFloat(result, 64)
+	db, err := sql.Open("sqlite3", "./tables")
 	if err != nil {
-		return 0, fmt.Errorf(errors.ErrUnprocessableEntity)
+		return fmt.Errorf("failed to open database: %w", err)
 	}
-	for i := 0; i < len(Id); i++ {
-		if Id[i].Id == id {
-			Id[i].Status = "solved"
-			Id[i].Result = result
-			break
+	defer db.Close()
+
+	// Проверяем основную таблицу
+	var mainID int
+	var expression string
+	err = db.QueryRow("SELECT id, expression FROM main_expression WHERE id = 1").Scan(&mainID, &expression)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			fmt.Println("Previous expression not found")
+			return nil
 		}
 	}
-	//Подсчет результата
-	res = res + d
-	v++
-	return v, nil
+	fmt.Println(expression)
+	// Читаем подвыражения
+	rows, err := db.Query(`
+        SELECT id, status, result 
+        FROM expressions`)
+	if err != nil {
+		return fmt.Errorf("failed to query sub-expressions: %w", err)
+	}
+	defer rows.Close()
+
+	found := false
+	for rows.Next() {
+		found = true
+		var sub SubExp
+		err := rows.Scan(&sub.Id, &sub.Status, &sub.Result)
+		if err != nil {
+			fmt.Printf("Error scanning sub-expression: %v\n", err)
+			continue
+		}
+		if sub.Id == "" {
+			_, err := Calculate(expression)
+			if err != nil {
+				return fmt.Errorf("Error in previous expression")
+			}
+			break
+		} else {
+			Id = append(Id, SubExp{
+				Id:     sub.Id,
+				Status: sub.Status,
+				Result: sub.Result,
+			})
+		}
+	}
+	if len(Tasks) == 0 {
+		TaskGenerator()
+		AgentStart()
+	}
+	if !found {
+		fmt.Println("No sub-expressions found")
+	}
+
+	return nil
+}
+func InitDB() error {
+	db, err := sql.Open("sqlite3", "./tables")
+	if err != nil {
+		return fmt.Errorf("failed to open database: %w", err)
+	}
+	defer db.Close()
+
+	// Создаём основную таблицу (одна строка)
+	_, err = db.Exec(`
+			CREATE TABLE IF NOT EXISTS main_expression (
+				id INTEGER PRIMARY KEY CHECK (id = 1),
+				expression TEXT NOT NULL,
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			)`)
+	if err != nil {
+		return fmt.Errorf("failed to create main_expression table: %w", err)
+	}
+
+	// Создаём таблицу подвыражений (с изменённым порядком колонок)
+	_, err = db.Exec(`
+        CREATE TABLE IF NOT EXISTS expressions (
+            id TEXT PRIMARY KEY,
+            status TEXT NOT NULL,
+            result TEXT
+        )`)
+	if err != nil {
+		return fmt.Errorf("failed to create expressions table: %w", err)
+	}
+
+	return nil
 }
 
-/*curl -X POST 'http://localhost:5000/api/v1/calculate' \
+/*
+curl -X POST 'http://localhost:5000/api/v1/calculate' \
 -H 'Content-Type: application/json' \
--H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDYyNzg2MjF9.bNCLz4aolgHsnwYzIs4olA-b2DqdimlbA3-RUGqNXIs' \
--d '{"expression":"1.2 + ( -8 * 9 / 7 + 56 - 7 ) * 8 - 35 + 74 / 41 - 8"}'*/
+-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDYzNjM1NTksImlhdCI6MTc0NjM2Mjk1OX0.brPSJ91BwljiClXahwfeYJEV-H78ICo3ZYWVM2R2UYU' \
+-d '{"expression":"1.2 + ( -8 * 9 / 7 + 56 - 7 ) * 8 - 35 + 74 / 41 - 8"}'
 
-/*curl -X GET 'http://localhost:5000/api/v1/expressions' \
--H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDYyNzg2MjF9.bNCLz4aolgHsnwYzIs4olA-b2DqdimlbA3-RUGqNXIs'
+curl -X GET 'http://localhost:5000/api/v1/expressions' \
+-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDYzNjM2OTYsImlhdCI6MTc0NjM2MzA5Nn0.ZudOw9yHBvanw5v7ezw4KnKlCKDt24s9wvKh2kgns2Q'
 
-curl -X GET 'http://localhost:5000/api/v1/expressions/id1' \
--H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoiUmVpdDEyMzRzZWNyZXQiLCJleHAiOjE3NDYyNzY5MDN9.m4AFoxqSEcjkj84GkFD2pufCAO--DgWaC1CjDhPvxPs'
+curl -X GET 'http://localhost:5000/api/v1/expressions/id10' \
+-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDYzNjM1NTksImlhdCI6MTc0NjM2Mjk1OX0.brPSJ91BwljiClXahwfeYJEV-H78ICo3ZYWVM2R2UYU'
 
 curl --location 'http://localhost:5000/api/v1/register' \
 --header 'Content-Type: application/json' \
