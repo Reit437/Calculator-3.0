@@ -7,13 +7,13 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
@@ -22,7 +22,6 @@ import (
 	ork "github.com/Reit437/Calculator-3.0/internal/app"
 	auth "github.com/Reit437/Calculator-3.0/internal/auth"
 	pb "github.com/Reit437/Calculator-3.0/internal/config/proto/main"
-	er "github.com/Reit437/Calculator-3.0/pkg/errors"
 )
 
 type server struct {
@@ -30,7 +29,7 @@ type server struct {
 }
 
 var (
-	Maxid    int
+	Maxid    string
 	mu       sync.Mutex
 	Lifetime int64
 	Auth     bool = false
@@ -38,19 +37,19 @@ var (
 
 func (s *server) Calculate(ctx context.Context, req *pb.CalculateRequest) (*pb.CalculateResponse, error) {
 	if !Auth {
-		return nil, status.Error(codes.Unauthenticated, "not authorized")
+		return nil, status.Error(401, "Not authorized")
 	}
 	// Проверка JWT
 	if err := checkJwt(ctx); err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		return nil, status.Error(401, err.Error())
 	}
 	if err := ork.InitDB(); err != nil {
-		return nil, status.Error(codes.Unauthenticated, "not authorized")
+		return nil, status.Error(500, "Error when opening DB")
 	}
 
 	db, err := sql.Open("sqlite3", "./tables")
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, "not authorized")
+		return nil, status.Error(500, "Error when opening DB")
 	}
 	defer db.Close()
 
@@ -64,23 +63,12 @@ func (s *server) Calculate(ctx context.Context, req *pb.CalculateRequest) (*pb.C
     SET expression = excluded.expression`,
 		expression)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, "Error in DB")
+		return nil, status.Error(500, "Error when saving expression in BD")
 	}
 
-	Maxid, err := ork.Calculate(expression)
+	Maxid, err = ork.Calculate(expression)
 	if err != nil {
-		log.Printf(er.ErrUnprocessableEntity)
-		return &pb.CalculateResponse{}, nil
-	}
-
-	for _, i := range ork.Id {
-		_, err := db.Exec(`
-		INSERT INTO expressions (id,status,result)
-		VALUES(?,?,?)`,
-			i.Id, i.Status, i.Result)
-		if err != nil {
-			return nil, status.Error(codes.Unauthenticated, err.Error())
-		}
+		return nil, status.Error(422, err.Error())
 	}
 
 	return &pb.CalculateResponse{
@@ -89,11 +77,11 @@ func (s *server) Calculate(ctx context.Context, req *pb.CalculateRequest) (*pb.C
 }
 func (s *server) GetExpressions(ctx context.Context, req *pb.GetExpressionsRequest) (*pb.GetExpressionsResponse, error) {
 	if !Auth {
-		return nil, status.Error(codes.Unauthenticated, "not authorized")
+		return nil, status.Error(401, "Not authorized")
 	}
 	err := checkJwt(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		return nil, status.Error(401, err.Error())
 	}
 
 	// Получаем список подвыражений
@@ -115,19 +103,18 @@ func (s *server) GetExpressions(ctx context.Context, req *pb.GetExpressionsReque
 }
 func (s *server) GetExpressionByID(ctx context.Context, req *pb.GetExpressionByIDRequest) (*pb.GetExpressionByIDResponse, error) {
 	if !Auth {
-		return nil, status.Error(codes.Unauthenticated, "not authorized")
+		return nil, status.Error(401, "Not authorized")
 	}
 	err := checkJwt(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		return nil, status.Error(401, err.Error())
 	}
 
 	id := req.GetId()
 	// Получаем выражение по ID
 	subExp, err := ork.ExpressionByID(id)
 	if err != nil {
-		log.Printf(er.ErrNotFound)
-		return &pb.GetExpressionByIDResponse{}, nil
+		return nil, status.Error(404, "Not found")
 	}
 
 	return &pb.GetExpressionByIDResponse{
@@ -143,7 +130,6 @@ func (s *server) Task(ctx context.Context, req *pb.TaskRequest) (*pb.TaskRespons
 	defer mu.Unlock()
 
 	task := ork.Taskf()
-	fmt.Println(task)
 
 	return &pb.TaskResponse{
 		Task: &pb.Tasks{
@@ -156,19 +142,32 @@ func (s *server) Task(ctx context.Context, req *pb.TaskRequest) (*pb.TaskRespons
 	}, nil
 }
 func (s *server) Result(ctx context.Context, req *pb.ResultRequest) (*pb.ResultResponse, error) {
+	mu.Lock()
+	defer mu.Unlock()
+
 	id := req.GetId()
 	result := req.GetResult()
 
 	res, err := ork.Result(id, result)
 	if err != nil {
-		log.Printf(er.ErrUnprocessableEntity)
-		return &pb.ResultResponse{}, nil
+		return nil, status.Error(500, err.Error())
 	}
-
-	if res != Maxid {
+	if "id"+strconv.Itoa(res) != Maxid {
 		return &pb.ResultResponse{}, nil
 	} else {
 		fmt.Println("Выражение решено")
+		if err := ork.InitDB(); err != nil {
+			return nil, status.Errorf(500, "Database initialization failed: %w", err)
+		}
+
+		db, err := sql.Open("sqlite3", "./tables")
+		if err != nil {
+			return nil, status.Errorf(500, "Failed to open database: %w", err)
+		}
+		defer db.Close()
+		_, err = db.Exec(`
+		DELETE FROM main_expression;
+		`)
 		return &pb.ResultResponse{}, nil
 	}
 }
@@ -178,9 +177,7 @@ func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 
 	err := auth.Register(login, password)
 	if err != nil {
-		return &pb.RegisterResponse{
-			Status: "Not successful",
-		}, nil
+		return nil, status.Error(500, err.Error())
 	}
 	return &pb.RegisterResponse{
 		Status: "Successful",
@@ -191,16 +188,14 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 	password := req.GetPassword()
 	j, t, err := auth.Login(login, password)
 	if err != nil {
-		return &pb.LoginResponse{
-			Jwt: "Неверные данные",
-		}, nil
+		return nil, status.Error(40, err.Error())
 	}
 	Auth = true
 	Lifetime = t + time.Now().Unix()
 
 	err = ork.ReadExpressions()
 	if err != nil {
-		fmt.Println(err)
+		return nil, status.Error(500, "Error in read previous expression")
 	}
 
 	return &pb.LoginResponse{
@@ -212,21 +207,21 @@ func checkJwt(ctx context.Context) error {
 	// 1. Получаем заголовок Authorization из метаданных
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return fmt.Errorf("metadata is not provided")
+		return fmt.Errorf("Metadata is not provided")
 	}
 
 	authHeader := md.Get("authorization")
 	if len(authHeader) == 0 {
-		return fmt.Errorf("authorization token is required")
+		return fmt.Errorf("Authorization token is required")
 	}
 
 	// 2. Проверяем формат токена (Bearer <token>)
 	tokenParts := strings.Split(authHeader[0], " ")
 	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-		return fmt.Errorf("invalid authorization format, expected 'Bearer <token>'")
+		return fmt.Errorf("Invalid authorization format, expected 'Bearer <token>'")
 	}
 	if Lifetime < time.Now().Unix() {
-		return fmt.Errorf("Error in JWT")
+		return fmt.Errorf("The token's lifetime has ended")
 	}
 	return nil
 }

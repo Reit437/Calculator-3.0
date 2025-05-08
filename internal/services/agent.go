@@ -17,26 +17,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// Задание от оркестратора
-type Task struct {
-	Id             string `json:"id"`
-	Arg1           string `json:"Arg1"`
-	Arg2           string `json:"Arg2"`
-	Operation      string `json:"Operation"`
-	Operation_time string `json:"Operation_time"`
-}
-
-// Ответ оркестратору
-type SolvExp struct {
-	Id     string `json:"id"`
-	Result string `json:"result"`
-}
-
-// Ответ оркестратору
-type APIResponse struct {
-	Tasks Task `json:"tasks"`
-}
-
 var (
 	mu         sync.Mutex
 	ID         string

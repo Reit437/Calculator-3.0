@@ -17,18 +17,10 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type ExpressionRequest struct {
-	Expression string `json:"expression"` // Прием первого запроса от пользователя с выражением
-}
-
 type SubExp struct { //подвыражения, запрашиваемые пользователем
 	Id     string `json:"Id"`
 	Status string `json:"status"`
 	Result string `json:"result"`
-}
-
-type Response struct {
-	ID string `json:"Id"` //главный id, по которому пользователь получает конечный ответ на все выражение(ответ для CalculateHandler)
 }
 
 type Task struct { //задания, отправляемые агенту
@@ -37,23 +29,6 @@ type Task struct { //задания, отправляемые агенту
 	Arg2          string `json:"Arg2"`
 	Operation     string `json:"Operation"`
 	OperationTime string `json:"Operation_time"`
-}
-
-type AllExpressionsResponse struct {
-	Expressions []SubExp `json:"expressions"` // ответ для ExpressionsHandler
-}
-
-type ExpressionResponse struct {
-	Expression SubExp `json:"expression"` // ответ для ExpressionByIdHandler
-}
-
-type TaskResponse struct {
-	Tasks Task `json:"Tasks"` //ответ для TaskHandler
-}
-
-type ResultResp struct { //прием результатов от агента
-	Id     string `json:"Id"`
-	Result string `json:"result"`
 }
 
 var (
@@ -117,7 +92,6 @@ func ExpressionByID(id string) (SubExp, error) {
 	defer mu.Unlock()
 
 	expressId, err := strconv.Atoi(id[2:])
-	fmt.Println(expressId, Maxid, id, id[2:])
 	//проверяем валидность id
 	if expressId > Maxid || expressId < 1 || err != nil {
 		return SubExp{}, fmt.Errorf(errors.ErrNotFound)
@@ -168,21 +142,6 @@ func Result(id, result string) (int, error) {
 	//Подсчет результата
 	res = res + d
 	v++
-
-	if err := InitDB(); err != nil {
-		return 0, fmt.Errorf("database initialization failed: %w", err)
-	}
-
-	db, err := sql.Open("sqlite3", "./tables")
-	if err != nil {
-		return 0, fmt.Errorf("failed to open database: %w", err)
-	}
-	defer db.Close()
-	_, err = db.Exec(`
-	DELETE FROM main_expression;
-	DELETE FROM expressions;
-	`)
-
 	return v, nil
 }
 
@@ -193,7 +152,7 @@ func AgentStart() {
 		cmd.Stderr = os.Stderr
 		err := cmd.Start()
 		if err != nil {
-			fmt.Println(errors.ErrInternalServerError)
+			fmt.Println("Error when starting Agent")
 		}
 	}()
 }
@@ -286,59 +245,27 @@ func ReadExpressions() error {
 	var mainID int
 	var expression string
 	err = db.QueryRow("SELECT id, expression FROM main_expression WHERE id = 1").Scan(&mainID, &expression)
+	fmt.Println(expression)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			fmt.Println("Previous expression not found")
 			return nil
 		}
 	}
-	fmt.Println(expression)
-	// Читаем подвыражения
-	rows, err := db.Query(`
-        SELECT id, status, result 
-        FROM expressions`)
+	_, err = Calculate(expression)
 	if err != nil {
-		return fmt.Errorf("failed to query sub-expressions: %w", err)
-	}
-	defer rows.Close()
-
-	found := false
-	for rows.Next() {
-		found = true
-		var sub SubExp
-		err := rows.Scan(&sub.Id, &sub.Status, &sub.Result)
-		if err != nil {
-			fmt.Printf("Error scanning sub-expression: %v\n", err)
-			continue
-		}
-		if sub.Id == "" {
-			_, err := Calculate(expression)
-			if err != nil {
-				return fmt.Errorf("Error in previous expression")
-			}
-			break
-		} else {
-			Id = append(Id, SubExp{
-				Id:     sub.Id,
-				Status: sub.Status,
-				Result: sub.Result,
-			})
-		}
+		return fmt.Errorf("Error in previous expression")
 	}
 	if len(Tasks) == 0 {
 		TaskGenerator()
 		AgentStart()
 	}
-	if !found {
-		fmt.Println("No sub-expressions found")
-	}
-
 	return nil
 }
 func InitDB() error {
 	db, err := sql.Open("sqlite3", "./tables")
 	if err != nil {
-		return fmt.Errorf("failed to open database: %w", err)
+		return fmt.Errorf("Failed to open database: %w", err)
 	}
 	defer db.Close()
 
@@ -350,18 +277,7 @@ func InitDB() error {
 				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 			)`)
 	if err != nil {
-		return fmt.Errorf("failed to create main_expression table: %w", err)
-	}
-
-	// Создаём таблицу подвыражений (с изменённым порядком колонок)
-	_, err = db.Exec(`
-        CREATE TABLE IF NOT EXISTS expressions (
-            id TEXT PRIMARY KEY,
-            status TEXT NOT NULL,
-            result TEXT
-        )`)
-	if err != nil {
-		return fmt.Errorf("failed to create expressions table: %w", err)
+		return fmt.Errorf("Failed to create main_expression table: %w", err)
 	}
 
 	return nil
@@ -370,11 +286,11 @@ func InitDB() error {
 /*
 curl -X POST 'http://localhost:5000/api/v1/calculate' \
 -H 'Content-Type: application/json' \
--H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDYzNjM1NTksImlhdCI6MTc0NjM2Mjk1OX0.brPSJ91BwljiClXahwfeYJEV-H78ICo3ZYWVM2R2UYU' \
--d '{"expression":"1.2 + ( -8 * 9 / 7 + 56 - 7 ) * 8 - 35 + 74 / 41 - 8"}'
+-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDY3MDQwNTEsImlhdCI6MTc0NjcwMzQ1MX0.hrrIOdR6yIrR2bvAfoWGNDwU-JshzITiiNzqwzggB3A' \
+-d '{"expression":"1.2 + ( -8 * 9 / 7 + 56 - 7 ) * 8 - 35 + 74 / 41 + 8"}'
 
 curl -X GET 'http://localhost:5000/api/v1/expressions' \
--H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDYzNjM2OTYsImlhdCI6MTc0NjM2MzA5Nn0.ZudOw9yHBvanw5v7ezw4KnKlCKDt24s9wvKh2kgns2Q'
+-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDY3MDQxMTQsImlhdCI6MTc0NjcwMzUxNH0.wDBGvkWE-6v21KFgf8Vz1nnR5V8YG1EtOg0KrEQLmAg'
 
 curl -X GET 'http://localhost:5000/api/v1/expressions/id10' \
 -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDYzNjM1NTksImlhdCI6MTc0NjM2Mjk1OX0.brPSJ91BwljiClXahwfeYJEV-H78ICo3ZYWVM2R2UYU'
@@ -392,4 +308,16 @@ curl --location 'http://localhost:5000/api/v1/login' \
     "login": "Reit",
     "password": "1234"
 }'
+
+curl --location 'http://localhost:5000/api/v1/login' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "login": "Reit",
+    "password": "1234"
+}'
+curl -X POST 'http://localhost:5000/api/v1/calculate' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDY3MDA1NTIsImlhdCI6MTc0NjY5OTk1Mn0.rsYURPILTx4VTf3zDNXaXDBCzNCfEEjZOlky-L-qhgM' \
+-d '{"expression":"1.2 + ( -8 * 9 / 7 + 56 - 7 ) * 8 - 35 + 74 / 41 + 8"}'
+
 */
