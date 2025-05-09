@@ -18,14 +18,16 @@ var (
 	once sync.Once
 )
 
-// initDB инициализирует подключение к БД и создает таблицу
 func InitDB() error {
+	// Создание/Инициализация БД
+
+	// Открываем БД
 	var err error
 	db, err = sql.Open("sqlite3", "./tables.db")
 	if err != nil {
 		return fmt.Errorf("Error when starting BD: %v", err)
 	}
-
+	// Создание таблицы
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS users (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,27 +39,32 @@ func InitDB() error {
 	return err
 }
 
-// Register регистрирует нового пользователя
 func Register(login, password string) error {
+	// Регистрация нового пользователя
+
+	// Создание БД
 	once.Do(func() {
 		if err := InitDB(); err != nil {
 			panic(err)
 		}
 	})
 
+	// Проверка логина на валидность
 	if matched, _ := regexp.MatchString(`^[a-zA-Z0-9]+$`, login); !matched {
 		return errors.New("The login must contain only English letters and numbers.")
 	}
-
+	// Проверка пароля на валидность
 	if matched, _ := regexp.MatchString(`^[a-zA-Z0-9]+$`, password); !matched {
 		return errors.New("The password must contain only English letters and numbers.")
 	}
 
+	// Хэширование пароля
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("Password hashing error: %v", err)
 	}
 
+	// Добавление логина и пароля в таблицу
 	_, err = db.Exec(
 		"INSERT INTO users (login, password) VALUES (?, ?)",
 		login,
@@ -73,21 +80,22 @@ func Register(login, password string) error {
 	return nil
 }
 
-// Login проверяет учетные данные пользователя
 func Login(login, password string) (string, int64, error) {
+	// Вход пользователя
+
+	// Создание БД
 	once.Do(func() {
 		if err := InitDB(); err != nil {
 			panic(err)
 		}
 	})
 
-	// 1. Ищем пользователя в БД
+	// Поиск логина в БД
 	var storedHash string
 	err := db.QueryRow(
 		"SELECT password FROM users WHERE login = ?",
 		login,
 	).Scan(&storedHash)
-
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return "", 0, errors.New("User was not found")
@@ -95,13 +103,13 @@ func Login(login, password string) (string, int64, error) {
 		return "", 0, fmt.Errorf("Error in user search: %v", err)
 	}
 
-	// 2. Сравниваем хеш из БД с введенным паролем
+	// Сравнение введенного пароля с хэшированым в таблице
 	err = bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(password))
 	if err != nil {
 		return "", 0, errors.New("Invalid password")
 	}
 
-	// 3. Генерируем JWT токен
+	// Генерация JWT токена
 	tokenExp := 10 * time.Minute
 	expirationTime := time.Now().Add(tokenExp).Unix()
 
@@ -111,8 +119,8 @@ func Login(login, password string) (string, int64, error) {
 		"exp":  expirationTime,
 	})
 
-	// Используем логин как секретный ключ (небезопасно для production!)
-	tokenString, err := token.SignedString([]byte(login))
+	// Подписываем JWT токен паролем и логином
+	tokenString, err := token.SignedString([]byte(login + password))
 	if err != nil {
 		return "", 0, fmt.Errorf("Error during token generation: %v", err)
 	}

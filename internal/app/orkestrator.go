@@ -41,16 +41,17 @@ var (
 )
 
 func Calculate(expression string) (string, error) {
-	/*Прием запроса с выражением от пользователя
+	/* Получение выражения из main.go
 	Разбиение его на подвыражения,
 	Формирование заданий для агента,
 	Запуск агента*/
+
 	mu.Lock()
 	defer mu.Unlock()
 
-	// вызов функции Calc для разбора выражения
+	// Вызов функции Calc для разбора выражения
 	subExpr, expErr := Calc.Calc(expression)
-	//проверка на ошибки при разбиении
+	// Проверка вылидности выражения
 	if expErr == 422 {
 		return "id0", fmt.Errorf(errors.ErrUnprocessableEntity)
 	}
@@ -58,77 +59,86 @@ func Calculate(expression string) (string, error) {
 	Id = []SubExp{}
 	Maxid = 0
 
-	//проходимся по мапе из Calc и добавляем в соответствующем формате в Id
+	// Проходимся по мапе из Calc и добавляем в формате структуры SubExp в Id
 	for expid, exp := range subExpr {
 		Maxid++
 		resp := SubExp{Id: expid, Status: "not solved", Result: exp}
 		Id = append(Id, resp)
 	}
 
-	//сортировка Id по id
+	// Сортировка Id по id
 	sort.Slice(Id, func(i, j int) bool {
 		id1, _ := strconv.Atoi(Id[i].Id[2:])
 		id2, _ := strconv.Atoi(Id[j].Id[2:])
 		return id1 < id2
 	})
-	//Формирование заданий
+	// Формирование заданий
 	TaskGenerator()
-	//Запускаем агента
+	// Запускаем агента
 	AgentStart()
+	// Возвращаем в main.go последний id
 	return "id" + strconv.Itoa(Maxid), nil
 }
 
 func Expressions() []SubExp {
 	//Отправка массива Id с подвыражениями
+
 	mu.Lock()
 	defer mu.Unlock()
 
+	// Отправка в main.go Id
 	return Id
 }
 
 func ExpressionByID(id string) (SubExp, error) {
-	//Вывод подвыражения по его id
+	// Вывод подвыражения по его id
+
 	mu.Lock()
 	defer mu.Unlock()
 
+	// Берем номер из id полученного из main.go
 	expressId, err := strconv.Atoi(id[2:])
 	//проверяем валидность id
 	if expressId > Maxid || expressId < 1 || err != nil {
 		return SubExp{}, fmt.Errorf(errors.ErrNotFound)
 	}
 
-	// поиск выражения
+	// Поиск выражения в Id
 	for _, exp := range Id {
 		if exp.Id == id {
+			// Возврат найденного подвыражения
 			return exp, nil
 		}
 	}
 
+	// Отправка ошибки, если выражение не было обнаружено в Id
 	return SubExp{}, fmt.Errorf(errors.ErrNotFound)
 }
 
-// Новый обработчик для /internal/task
 func Taskf() Task {
-	// отправка подвыражений агенту
-	var mu sync.Mutex
+	// Отправка в main.go первого задания из списка
+
 	mu.Lock()
 	defer mu.Unlock()
 
+	// Берем первое задание из списка
 	task := Tasks[0]
+	// Удаляем первое задание
 	Tasks = Tasks[1:]
+	// Отправляем первое задание в main.go
 	return task
 }
 
 func Result(id, result string) (int, error) {
-	// прием результатов от агента
+	// Приём результатов вычислени Агента из main.go
 
-	//проверка на валидность подвыражений
+	//проверка на валидность полученного id
 	if id[len(id)-1] == byte(Maxid+1) {
 		return 0, fmt.Errorf(errors.ErrNotFound)
 	}
 
-	//замена статуса и результата в Id
-	d, err := strconv.ParseFloat(result, 64)
+	//замена статуса и результата подвыражения в Id
+	_, err := strconv.ParseFloat(result, 64)
 	if err != nil {
 		return 0, fmt.Errorf(errors.ErrUnprocessableEntity)
 	}
@@ -139,13 +149,13 @@ func Result(id, result string) (int, error) {
 			break
 		}
 	}
-	//Подсчет результата
-	res = res + d
+	// Добавляем 1 к счетчику подвыражений
 	v++
 	return v, nil
 }
 
 func AgentStart() {
+	// Запуск Агента
 	go func() {
 		cmd := exec.Command("go", "run", "./internal/services/agent.go")
 		cmd.Stdout = os.Stdout
@@ -157,15 +167,16 @@ func AgentStart() {
 	}()
 }
 func TaskGenerator() {
-	//Формирование заданий
-	dir, err := os.Getwd() //установка пути до файла с переменными среды
+	// Формирование заданий
+
+	dir, err := os.Getwd() // Установка пути до файла с переменными среды
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	dir = dir[:strings.Index(dir, "Calculator-3.0")+14]
 	envPath := filepath.Join(dir, "internal", "config", "variables.env")
-	//Загрузка переменных среды
+
+	// Загрузка переменных среды
 	if err := godotenv.Load(envPath); err != nil {
 		log.Fatalf("Ошибка загрузки .env в оркестраторе из %s: %v", envPath, err)
 	}
@@ -177,17 +188,17 @@ func TaskGenerator() {
 		divTime  = os.Getenv("TIME_DIVISIONS_MS")
 	)
 
-	//Формирование массива с заданиями
+	// Формирование массива с заданиями
 	for _, i := range Id {
 		result := i.Result
-		//Ищем знаки операций
+		// Ищем знаки операций
 		add := strings.Index(result, "+")
 		sub := strings.Index(result, " - ")
 		mult := strings.Index(result, "*")
 		div := strings.Index(result, "/")
 		var time, ind = "", 0
 
-		//Если находим операцию, устанавливаем соответствующее время и запоминаем индекс операции
+		// Если находим операцию, устанавливаем соответствующее время и запоминаем индекс операции
 		switch {
 		case add != -1:
 			time = addTime
@@ -202,8 +213,7 @@ func TaskGenerator() {
 			time = divTime
 			ind = div
 		}
-
-		//Формируем задание
+		// Формируем задание
 		task := Task{
 			Id:            i.Id,
 			Arg1:          result[:ind-1],
@@ -211,17 +221,16 @@ func TaskGenerator() {
 			Operation:     string(result[ind]),
 			OperationTime: time,
 		}
-		Tasks = append(Tasks, task) //добавляем задание
+		Tasks = append(Tasks, task) // Добавляем задание
 
-		//сортировка заданий по id
+		// Сортировка заданий по id
 		sort.Slice(Tasks, func(i, j int) bool {
 			id1, _ := strconv.Atoi(Tasks[i].Id[2:])
 			id2, _ := strconv.Atoi(Tasks[j].Id[2:])
 			return id1 < id2
 		})
 	}
-
-	//Создаем последнее задание для остановки агента
+	// Создаем последнее задание для остановки Агента
 	Tasks = append(Tasks, Task{
 		Id:            "last",
 		Arg1:          "g",
@@ -231,27 +240,32 @@ func TaskGenerator() {
 	})
 }
 func ReadExpressions() error {
+	// Поиск не посдчитанного выражения и запуск алгоритма для его решения
+
+	// Создаем БД
 	if err := InitDB(); err != nil {
 		return fmt.Errorf("database initialization failed: %w", err)
 	}
-
+	// Открываем БД
 	db, err := sql.Open("sqlite3", "./tables")
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
 	defer db.Close()
 
-	// Проверяем основную таблицу
+	// Проверяем таблицу
 	var mainID int
 	var expression string
 	err = db.QueryRow("SELECT id, expression FROM main_expression WHERE id = 1").Scan(&mainID, &expression)
-	fmt.Println(expression)
 	if err != nil {
+		// Проверка, что ошибка вызвана отсутствием предыдущего выражения
 		if err == sql.ErrNoRows {
 			fmt.Println("Previous expression not found")
 			return nil
 		}
 	}
+
+	// Если прошлое выражение было найдено, запускаем его решение
 	_, err = Calculate(expression)
 	if err != nil {
 		return fmt.Errorf("Error in previous expression")
@@ -263,13 +277,16 @@ func ReadExpressions() error {
 	return nil
 }
 func InitDB() error {
+	// Создание/Инициализация БД
+
+	// Открываем БД
 	db, err := sql.Open("sqlite3", "./tables")
 	if err != nil {
 		return fmt.Errorf("Failed to open database: %w", err)
 	}
 	defer db.Close()
 
-	// Создаём основную таблицу (одна строка)
+	// Создаём таблицу
 	_, err = db.Exec(`
 			CREATE TABLE IF NOT EXISTS main_expression (
 				id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -286,14 +303,14 @@ func InitDB() error {
 /*
 curl -X POST 'http://localhost:5000/api/v1/calculate' \
 -H 'Content-Type: application/json' \
--H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDY3MDQwNTEsImlhdCI6MTc0NjcwMzQ1MX0.hrrIOdR6yIrR2bvAfoWGNDwU-JshzITiiNzqwzggB3A' \
+-H 'Authorization: Bearer ваш_jwt_токен' \
 -d '{"expression":"1.2 + ( -8 * 9 / 7 + 56 - 7 ) * 8 - 35 + 74 / 41 + 8"}'
 
 curl -X GET 'http://localhost:5000/api/v1/expressions' \
--H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDY3MDQxMTQsImlhdCI6MTc0NjcwMzUxNH0.wDBGvkWE-6v21KFgf8Vz1nnR5V8YG1EtOg0KrEQLmAg'
+-H 'Authorization: Bearer ваш_jwt_токен'
 
 curl -X GET 'http://localhost:5000/api/v1/expressions/id10' \
--H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDYzNjM1NTksImlhdCI6MTc0NjM2Mjk1OX0.brPSJ91BwljiClXahwfeYJEV-H78ICo3ZYWVM2R2UYU'
+-H 'Authorization: Bearer ваш_jwt_токен'
 
 curl --location 'http://localhost:5000/api/v1/register' \
 --header 'Content-Type: application/json' \
@@ -308,16 +325,5 @@ curl --location 'http://localhost:5000/api/v1/login' \
     "login": "Reit",
     "password": "1234"
 }'
-
-curl --location 'http://localhost:5000/api/v1/login' \
---header 'Content-Type: application/json' \
---data-raw '{
-    "login": "Reit",
-    "password": "1234"
-}'
-curl -X POST 'http://localhost:5000/api/v1/calculate' \
--H 'Content-Type: application/json' \
--H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDY3MDA1NTIsImlhdCI6MTc0NjY5OTk1Mn0.rsYURPILTx4VTf3zDNXaXDBCzNCfEEjZOlky-L-qhgM' \
--d '{"expression":"1.2 + ( -8 * 9 / 7 + 56 - 7 ) * 8 - 35 + 74 / 41 + 8"}'
 
 */
