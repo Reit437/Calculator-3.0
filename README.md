@@ -11,10 +11,11 @@
 5. Выражение попадает в main.go, где используя функции Оркестратора оно обрабатывается.
 6. Выражение разбивается на подвыражения.
 7. Из этих подвыражений формируются задания.
-8. Агент запускает горутины и по постоянно забирает по одному заданию.
-9. Решенные задания отправляются обратно в main.go.
-10. В списке подвыражений, каждое подвыражение постепенно заменяет статус на "solved" и результат на результат решенного задания полученного из Агента.
-11. В процеесе всего этого процесса пользователь может запрашивать списов подвыражений или только одно подвыражение
+8. Агент запускает горутины и
+   постоянно забирает по одному заданию.
+10. Решенные задания отправляются обратно в main.go.
+11. В списке подвыражений, каждое подвыражение постепенно заменяет статус на "solved" и результат на результат решенного задания полученного из Агента.
+12. В процеесе всего этого процесса пользователь может запрашивать списов подвыражений или только одно подвыражение
     
 Подробнее о работе программы ниже
 ## Подробнее о работе API
@@ -44,21 +45,216 @@
 ### Запуск
 Запуск через терминал
 1. Если вы закрыи терминал, то откройте его и повторите 1 пункт из Установки, если не не закрывали, то введите `cd Calculator-3.0`
-2. Введите в терминал `go run ./cmd/app/main.go`
-3. Откройте GitBash и введите(поле expression можно менять как угодно):
+2. Введите в терминал `go run ./cmd/app/main.go`, либо запустите main.exe в `Calculator-3.0/cmd/app`
+3. Для регистрации откройте GitBash и введите:
 ```
-curl --location 'http://localhost:80/api/v1/calculate' \
+curl --location 'http://localhost:5000/api/v1/register' \
 --header 'Content-Type: application/json' \
---data '{
-  "expression": "1.2 + ( -8 * 9 / 7 + 56 - 7 ) * 8 - 35 + 74 / 41 - 8"
+--data-raw '{
+    "login": "ваш_логин",
+    "password": "ваш_пароль"
 }'
 ```
-Вы получите обратно id, это id по которому вы сможете получить ответ на всё выражение
+Для входа введите:
+```
+curl --location 'http://localhost:5000/api/v1/login' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "login": "ваш_логин",
+    "password": "ваш_пароль"
+}'
+```
+ПРИМЕЧАНИЕ Если у вас возникнут проблемы с БД, просто удалите оба файла tables в корне проекта
+
+5. Выражение задается запросом ниже(jwt токен вы получите после успешного входа. ВРЕМЯ ЖИЗНИ ТОКЕНА 10 МИНУТ!):
+```
+curl -X POST 'http://localhost:5000/api/v1/calculate' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJle
+HAiOjE3NDY4NzA5MzgsImlhdCI6MTc0Njg3MDMzOH0.iO3Qjp__C-_eRQm-4fNOUD-JEqVkFKsrhiQzh
+ApJ_kg' \
+-d '{"expression":"2 + 2 * 2"}'
+```
+Вы получите обратно id, это id по которому вы сможете получить ответ на всё выражение.
+
 ВАЖНО! Пробелы в вашем выражении должны быть строго как в образце сверху иначе будет ошибка.
-4. Пока будет решаться выражение вы можете ввести(в GitBash):
+
+5. Пока будет решаться выражение вы можете ввести(в GitBash):
 1.`curl --location 'localhost/api/v1/expressions`, чтобы посмотреть все сформированные подзадачи
 2.`curl --location 'localhost/api/v1/expressions/id1`, чтобы посмотреть определенную подзадачу(можете менять id1 на любой id, но строго в таком формате)
-5. После надписи в терминале "Выражение решено", можете ввести команду 4.2 с id, который вам дали при вводе выражения и увидеть ответ
+6. После надписи в терминале "Выражение решено", можете ввести команду 4.2 с id, который вам дали при вводе выражения и увидеть ответ
 ## Примеры работы
+### Регистрация и вход
+Правильная регистрация:
+```
+curl --location 'http://localhost:5000/api/v1/register' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "login": "Reit",
+    "password": "1234"
+}'
+```
+Ответ:
+```
+{
+  "status": "Successful"
+}
+```
 
+Правильный вход:
+```
+curl --location 'http://localhost:5000/api/v1/login' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "login": "Reit",
+    "password": "1234"
+}'
+```
+Ответ:
+```
+{
+  "jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJle
+HAiOjE3NDY4NzA5MzgsImlhdCI6MTc0Njg3MDMzOH0.iO3Qjp__C-_eRQm-4fNOUD-JEqVkFKsrhiQzh
+ApJ_kg"
+}
+```
 
+Регистрация с невалидным логином:
+```
+curl --location 'http://localhost:5000/api/v1/register' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "login": "Rei*t",
+    "password": "1234"
+}'
+```
+Ответ:
+```
+{
+  "code": 500,
+  "message": "The login must contain only English letters and numbers."
+}
+```
+
+Вход по не существующему логину:
+```
+curl --location 'http://localhost:5000/api/v1/login' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "login": "Reitffffff",
+    "password": "1234"
+}'
+```
+Ответ:
+```
+{
+  "code": 401,
+  "message": "User was not found"
+}
+```
+### Работа с выражениями
+Валидное выражение:
+```
+curl -X POST 'http://localhost:5000/api/v1/calculate' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDY4NzA5MzgsImlhdCI6MTc0Njg3MDMzOH0.iO3Qjp__C-_eRQm-4fNOUD-JEqVkFKsrhiQzhpJ_kg' \
+-d '{"expression":"2 + 2 * 2"}'
+```
+Ответ по:
+```
+curl -X GET 'http://localhost:5000/api/v1/expressions/id2' \
+-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDY4NzA5MzgsImlhdCI6MTc0Njg3MDMzOH0.iO3Qjp__C-_eRQm-4fNOUD-JEqVkFKsrhiQzhpJ_kg'
+```
+```
+{
+  "expression": {
+    "id": "id2",
+    "status": "solved",
+    "result": "6.000"
+  }
+}
+```
+
+Невалидное выражение:
+```
+curl -X POST 'http://localhost:5000/api/v1/calculate' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDY4NzA5MzgsImlhdCI6MTc0Njg3MDMzOH0.iO3Qjp__C-_eRQm-4fNOUD-JEqVkFKsrhiQzhpJ_kg' \
+-d '{"expression":"2 + 2 / ( 100 + 54 - 89-- )"}'
+```
+Ответ:
+```
+{
+  "code": 422,
+  "message": "Невалидные данные"
+}
+```
+
+Валидное сложное выражение со скобками, отрицательными числами и дробными числами:
+```
+curl -X POST 'http://localhost:5000/api/v1/calculate' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDY4NzA5MzgsImlhdCI6MTc0Njg3MDMzOH0.iO3Qjp__C-_eRQm-4fNOUD-JEqVkFKsrhiQzhpJ_kg' \
+-d '{"expression":"1.2 + ( -8 * 9 / 7 + 56 - 7 ) * 8 - 35 + 74 / 41 + 8"}'
+```
+Ответ по:
+```
+curl -X GET 'http://localhost:5000/api/v1/expressions' \
+-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoic2VjcmV0X2NvZGUiLCJleHAiOjE3NDY4NzA5MzgsImlhdCI6MTc0Njg3MDMzOH0.iO3Qjp__C-_eRQm-4fNOUD-JEqVkFKsrhiQzhpJ_kg'
+```
+```
+{
+  "expressions": [
+    {
+      "id": "id1",
+      "status": "solved",
+      "result": "-72.000"
+    },
+    {
+      "id": "id2",
+      "status": "solved",
+      "result": "-10.286"
+    },
+    {
+      "id": "id3",
+      "status": "solved",
+      "result": "45.714"
+    },
+    {
+      "id": "id4",
+      "status": "solved",
+      "result": "38.714"
+    },
+    {
+      "id": "id5",
+      "status": "solved",
+      "result": "309.712"
+    },
+    {
+      "id": "id6",
+      "status": "solved",
+      "result": "1.805"
+    },
+    {
+      "id": "id7",
+      "status": "solved",
+      "result": "310.910"
+    },
+    {
+      "id": "id8",
+      "status": "solved",
+      "result": "275.910"
+    },
+    {
+      "id": "id9",
+      "status": "solved",
+      "result": "277.710"
+    },
+    {
+      "id": "id10",
+      "status": "solved",
+      "result": "285.710"
+    }
+  ]
+}
+```
